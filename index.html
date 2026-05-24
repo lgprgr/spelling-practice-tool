@@ -71,6 +71,11 @@
       background: #f4f7fb;
     }
 
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     button.primary {
       border-color: #2563eb;
       color: #1d4ed8;
@@ -287,7 +292,7 @@
       <p id="correctAnswer"></p>
     </section>
 
-    <p class="version">Version 1.3.0</p>
+    <p class="version">Version 1.3.1</p>
   </main>
 
   <script>
@@ -319,6 +324,7 @@
     let currentType = "";
     let speechRunId = 0;
     let startSpeechTimeoutId = null;
+    let hasData = false;
 
     const answerInput = document.getElementById("answer");
     const result = document.getElementById("result");
@@ -346,19 +352,20 @@
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    function hasLoadedData() {
-      return firstNames.length > 0
-        && lastNames.length > 0
-        && emailWords.length > 0
-        && emailDomains.length > 0;
+    function setDataButtonsEnabled(isEnabled) {
+      practiceButtons.name.disabled = !isEnabled;
+      practiceButtons.email.disabled = !isEnabled;
     }
 
-    function resetRound() {
+    function cancelPendingSpeech() {
       if (startSpeechTimeoutId) {
         window.clearTimeout(startSpeechTimeoutId);
         startSpeechTimeoutId = null;
       }
+    }
 
+    function resetRound() {
+      cancelPendingSpeech();
       answerInput.value = "";
       result.textContent = "";
       correctAnswer.textContent = "";
@@ -366,11 +373,7 @@
     }
 
     function stopSpelling() {
-      if (startSpeechTimeoutId) {
-        window.clearTimeout(startSpeechTimeoutId);
-        startSpeechTimeoutId = null;
-      }
-
+      cancelPendingSpeech();
       speechRunId += 1;
       window.speechSynthesis.cancel();
     }
@@ -394,7 +397,7 @@
     }
 
     function newName() {
-      if (!hasLoadedData()) {
+      if (!hasData) {
         result.textContent = "Name data is still loading. Try again in a moment.";
         result.style.color = "#555";
         return;
@@ -438,7 +441,7 @@
     }
 
     function newEmail() {
-      if (!hasLoadedData()) {
+      if (!hasData) {
         result.textContent = "Email data is still loading. Try again in a moment.";
         result.style.color = "#555";
         return;
@@ -484,6 +487,8 @@
           loadList("data/email-words.json"),
           loadList("data/email-domains.json")
         ]);
+        hasData = true;
+        setDataButtonsEnabled(true);
       } catch (error) {
         console.error(error);
         result.textContent = "Could not load local data files. Start the local server and refresh.";
@@ -538,7 +543,7 @@
     }
 
     function readDigitPair(pair) {
-      return pair.startsWith("0") ? pair.split("").join(", ") : pair;
+      return pair.startsWith("0") ? spellCharacters(pair) : pair;
     }
 
     function getPhoneGroupText(group, index) {
@@ -680,8 +685,7 @@
         return;
       }
 
-      window.speechSynthesis.cancel();
-      speechRunId += 1;
+      stopSpelling();
       const runId = speechRunId;
 
       if (currentType === "phone" && pausePhoneGroups.checked) {
@@ -717,9 +721,11 @@
     }
 
     function isValidPhoneAnswer(answer) {
-      return /^\d{10}$/.test(answer)
-        || /^\d{3} \d{3} \d{4}$/.test(answer)
-        || /^\d{3}-\d{3}-\d{4}$/.test(answer);
+      const trimmedAnswer = answer.trim();
+
+      return /^\d{10}$/.test(trimmedAnswer)
+        || /^\d{3} \d{3} \d{4}$/.test(trimmedAnswer)
+        || /^\d{3}-\d{3}-\d{4}$/.test(trimmedAnswer);
     }
 
     function isCorrectAnswer(answer) {
@@ -779,6 +785,7 @@
       }
     });
 
+    setDataButtonsEnabled(false);
     loadData();
     populateVoices();
     updateSpeedLabel();
