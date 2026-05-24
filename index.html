@@ -96,6 +96,16 @@
       background: #fef2f2;
     }
 
+    button.next-ready {
+      background: #16a34a;
+      border-color: #16a34a;
+      color: #ffffff;
+    }
+
+    button.next-ready:hover {
+      background: #15803d;
+    }
+
     input, select {
       border: 1px solid #bdc7d6;
       width: 100%;
@@ -123,7 +133,7 @@
       display: grid;
       column-gap: 14px;
       row-gap: 12px;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
     }
 
     .practice-column {
@@ -142,8 +152,26 @@
       gap: 10px;
     }
 
+    .practice-spacer {
+      min-height: 1px;
+    }
+
     .answer-input {
       margin-top: 18px;
+    }
+
+    .answer-input input {
+      background: #fbfdff;
+      border-color: #94a3b8;
+      font-size: 22px;
+      padding: 14px 12px;
+    }
+
+    .answer-help {
+      color: #667085;
+      font-size: 14px;
+      margin: 2px 0 0;
+      min-height: 21px;
     }
 
     .answer-actions {
@@ -151,10 +179,70 @@
     }
 
     .result {
+      border: 1px solid transparent;
+      border-radius: 6px;
       font-size: 22px;
       font-weight: bold;
       margin-top: 16px;
-      min-height: 33px;
+      min-height: 35px;
+      padding: 10px 12px;
+    }
+
+    .result:empty {
+      border-color: transparent;
+      padding-bottom: 0;
+      padding-top: 0;
+    }
+
+    .result.success {
+      background: #ecfdf3;
+      border-color: #86efac;
+      color: #166534;
+    }
+
+    .result.error {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+
+    .result.neutral {
+      background: #f4f7fb;
+      border-color: #d7dee8;
+      color: #344054;
+    }
+
+    .progress {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-top: 16px;
+    }
+
+    .progress p {
+      color: #344054;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .progress .checkbox-label {
+      font-weight: 700;
+    }
+
+    .progress-details {
+      align-items: center;
+      display: none;
+      gap: 10px;
+    }
+
+    .progress.counter-enabled .progress-details {
+      display: flex;
+    }
+
+    .progress button {
+      font-size: 14px;
+      padding: 7px 10px;
     }
 
     #correctAnswer {
@@ -192,8 +280,9 @@
 
     .version {
       color: #777;
-      font-size: 14px;
-      margin-top: 32px;
+      font-size: 12px;
+      margin: 28px 0 0;
+      text-align: right;
     }
 
     @media (max-width: 560px) {
@@ -208,6 +297,29 @@
       .practice-grid,
       .practice-column {
         grid-template-columns: 1fr;
+      }
+
+      .buttons {
+        flex-direction: column;
+      }
+
+      .buttons button,
+      .practice-grid button {
+        width: 100%;
+      }
+
+      .progress {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .progress-details {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .practice-spacer {
+        display: none;
       }
     }
   </style>
@@ -243,6 +355,7 @@
         <button class="primary" id="nameButton">Spell name</button>
         <button class="primary" id="emailButton">Spell email</button>
         <button class="primary" id="phoneButton">Spell phone</button>
+        <button class="primary" id="surpriseButton">Surprise me</button>
 
         <div class="practice-column">
           <label class="checkbox-label" for="pauseNameParts">
@@ -268,6 +381,7 @@
             <span>Read last four as pairs</span>
           </label>
         </div>
+        <div class="practice-column practice-spacer"></div>
       </div>
     </section>
 
@@ -281,22 +395,35 @@
       <div class="control-row answer-input">
         <label for="answer">Type your answer</label>
         <input id="answer" type="text" autocomplete="off" />
+        <p id="answerHelp" class="answer-help"></p>
       </div>
 
       <div class="buttons answer-actions">
         <button class="primary" id="checkButton">Check answer</button>
+        <button id="nextButton">Next</button>
         <button id="showButton">Show correct answer</button>
       </div>
 
       <div id="result" class="result"></div>
       <p id="correctAnswer"></p>
+
+      <div id="progressPanel" class="progress" aria-label="Progress">
+        <label class="checkbox-label" for="counterToggle">
+          <input id="counterToggle" type="checkbox" />
+          <span>Score chase</span>
+        </label>
+        <div class="progress-details">
+          <p id="progressText">Spelled: 0 | Correct: 0</p>
+          <button id="resetCounterButton">Reset counter</button>
+        </div>
+      </div>
     </section>
 
-    <p class="version">Version 1.3.2</p>
+    <p class="version">Version 1.3.3</p>
   </main>
 
   <script>
-    const START_MESSAGE = "Choose Spell name, Spell email, or Spell phone to start.";
+    const START_MESSAGE = "Choose Spell name, Spell email, Spell phone, or Surprise me to start.";
     const ROUND_START_DELAY_MS = 500;
     const NAME_PAUSE_MS = 450;
     const EMAIL_PAUSE_MS = 350;
@@ -322,17 +449,34 @@
     let emailDomains = [];
     let currentAnswer = "";
     let currentType = "";
+    let currentMode = "";
     let speechRunId = 0;
     let startSpeechTimeoutId = null;
     let hasData = false;
+    let spelledCount = 0;
+    let correctCount = 0;
+    let currentRoundCounted = false;
+    let currentRoundCorrect = false;
+    let currentRoundMissed = false;
+    let repeatUsed = false;
+    let readNormallyUsed = false;
 
     const answerInput = document.getElementById("answer");
+    const answerHelp = document.getElementById("answerHelp");
     const result = document.getElementById("result");
     const correctAnswer = document.getElementById("correctAnswer");
+    const repeatButton = document.getElementById("repeatButton");
+    const readButton = document.getElementById("readButton");
+    const showButton = document.getElementById("showButton");
+    const nextButton = document.getElementById("nextButton");
+    const counterToggle = document.getElementById("counterToggle");
+    const progressPanel = document.getElementById("progressPanel");
+    const progressText = document.getElementById("progressText");
     const practiceButtons = {
       name: document.getElementById("nameButton"),
       email: document.getElementById("emailButton"),
-      phone: document.getElementById("phoneButton")
+      phone: document.getElementById("phoneButton"),
+      surprise: document.getElementById("surpriseButton")
     };
     const voiceSelect = document.getElementById("voiceSelect");
     const speedSlider = document.getElementById("speedSlider");
@@ -355,6 +499,69 @@
     function setDataButtonsEnabled(isEnabled) {
       practiceButtons.name.disabled = !isEnabled;
       practiceButtons.email.disabled = !isEnabled;
+      practiceButtons.surprise.disabled = !isEnabled;
+    }
+
+    function setResult(message, type = "neutral") {
+      result.textContent = message;
+      result.classList.remove("success", "error", "neutral");
+
+      if (message) {
+        result.classList.add(type);
+      }
+    }
+
+    function clearResult() {
+      setResult("");
+    }
+
+    function updateProgress() {
+      progressText.textContent = `Spelled: ${spelledCount} | Correct: ${correctCount}`;
+    }
+
+    function isCounterEnabled() {
+      return counterToggle.checked;
+    }
+
+    function resetCounter() {
+      spelledCount = 0;
+      correctCount = 0;
+      updateProgress();
+      focusAnswerAtEnd();
+    }
+
+    function updateShowAnswerButton() {
+      showButton.disabled = isCounterEnabled() && !currentRoundMissed;
+    }
+
+    function updateCounterUI() {
+      const counterEnabled = isCounterEnabled();
+
+      progressPanel.classList.toggle("counter-enabled", counterEnabled);
+      if (counterEnabled) {
+        resetCounter();
+      }
+
+      if (counterEnabled) {
+        correctAnswer.textContent = "";
+      }
+
+      updateShowAnswerButton();
+      updateRoundActionButtons();
+    }
+
+    function updateRoundActionButtons() {
+      const counterEnabled = isCounterEnabled();
+
+      repeatButton.disabled = !currentAnswer || (counterEnabled && repeatUsed);
+      readButton.disabled = !currentAnswer || (counterEnabled && readNormallyUsed);
+    }
+
+    function updateNextButton() {
+      const typeLabel = currentMode || currentType || "item";
+      nextButton.textContent = `Next ${typeLabel}`;
+      nextButton.disabled = !currentAnswer;
+      nextButton.classList.toggle("next-ready", currentRoundCorrect);
     }
 
     function cancelPendingSpeech() {
@@ -367,8 +574,16 @@
     function resetRound() {
       cancelPendingSpeech();
       answerInput.value = "";
-      result.textContent = "";
+      currentRoundCounted = false;
+      currentRoundCorrect = false;
+      currentRoundMissed = false;
+      repeatUsed = false;
+      readNormallyUsed = false;
+      clearResult();
       correctAnswer.textContent = "";
+      updateRoundActionButtons();
+      updateShowAnswerButton();
+      updateNextButton();
       focusAnswerAtEnd();
     }
 
@@ -389,11 +604,16 @@
       });
     }
 
-    function startRound(type, answer, placeholder) {
+    function startRound(type, answer, placeholder, mode = type) {
       currentType = type;
+      currentMode = mode;
       currentAnswer = answer;
       answerInput.placeholder = placeholder;
-      setActivePractice(type);
+      answerInput.inputMode = type === "phone" ? "tel" : "text";
+      answerHelp.textContent = type === "phone"
+        ? "Accepted formats: 2485551234, 248 555 1234, 248-555-1234"
+        : "";
+      setActivePractice(mode);
       resetRound();
       startSpeechTimeoutId = window.setTimeout(() => {
         startSpeechTimeoutId = null;
@@ -401,15 +621,14 @@
       }, ROUND_START_DELAY_MS);
     }
 
-    function newName() {
+    function newName(mode = "name") {
       if (!hasData) {
-        result.textContent = "Name data is still loading. Try again in a moment.";
-        result.style.color = "#555";
+        setResult("Name data is still loading. Try again in a moment.");
         return;
       }
 
       const answer = `${getRandomItem(firstNames)} ${getRandomItem(lastNames)}`;
-      startRound("name", answer, "First Last");
+      startRound("name", answer, "First Last", mode);
     }
 
     function makeNameEmailLocalPart() {
@@ -445,10 +664,9 @@
       return getRandomItem(patterns);
     }
 
-    function newEmail() {
+    function newEmail(mode = "email") {
       if (!hasData) {
-        result.textContent = "Email data is still loading. Try again in a moment.";
-        result.style.color = "#555";
+        setResult("Email data is still loading. Try again in a moment.");
         return;
       }
 
@@ -457,15 +675,49 @@
         : makeWordEmailLocalPart();
       const domain = getRandomItem(emailDomains);
 
-      startRound("email", `${localPart}@${domain}`, "example@gmail.com");
+      startRound("email", `${localPart}@${domain}`, "example@gmail.com", mode);
     }
 
-    function newPhone() {
+    function newPhone(mode = "phone") {
       const areaCode = getRandomItem(michiganAreaCodes);
       const prefix = String(getRandomNumber(200, 999));
       const lineNumber = String(getRandomNumber(0, 9999)).padStart(4, "0");
 
-      startRound("phone", `${areaCode}-${prefix}-${lineNumber}`, "248-555-1234");
+      startRound("phone", `${areaCode}-${prefix}-${lineNumber}`, "248-555-1234", mode);
+    }
+
+    function newSurprise() {
+      const surpriseRound = getRandomItem([
+        () => newName("surprise"),
+        () => newEmail("surprise"),
+        () => newPhone("surprise")
+      ]);
+
+      surpriseRound();
+    }
+
+    function startNextRound() {
+      if (currentMode === "surprise") {
+        newSurprise();
+        return;
+      }
+
+      if (currentType === "name") {
+        newName();
+        return;
+      }
+
+      if (currentType === "email") {
+        newEmail();
+        return;
+      }
+
+      if (currentType === "phone") {
+        newPhone();
+        return;
+      }
+
+      setResult(START_MESSAGE);
     }
 
     async function loadList(path) {
@@ -496,8 +748,7 @@
         setDataButtonsEnabled(true);
       } catch (error) {
         console.error(error);
-        result.textContent = "Could not load local data files. Start the local server and refresh.";
-        result.style.color = "red";
+        setResult("Could not load local data files. Start the local server and refresh.", "error");
       }
     }
 
@@ -667,10 +918,19 @@
 
     function readNormally() {
       if (!currentAnswer) {
-        result.textContent = START_MESSAGE;
-        result.style.color = "#555";
+        setResult(START_MESSAGE);
         return;
       }
+
+      if (isCounterEnabled() && readNormallyUsed) {
+        return;
+      }
+
+      if (isCounterEnabled()) {
+        readNormallyUsed = true;
+      }
+
+      updateRoundActionButtons();
 
       focusAnswerAtEnd();
       stopSpelling();
@@ -686,8 +946,7 @@
 
     function speakSpelling() {
       if (!currentAnswer) {
-        result.textContent = START_MESSAGE;
-        result.style.color = "#555";
+        setResult(START_MESSAGE);
         return;
       }
 
@@ -719,6 +978,19 @@
       window.speechSynthesis.speak(makeUtterance(spellingText));
     }
 
+    function repeatSpelling() {
+      if (isCounterEnabled() && repeatUsed) {
+        return;
+      }
+
+      if (isCounterEnabled()) {
+        repeatUsed = true;
+      }
+
+      updateRoundActionButtons();
+      speakSpelling();
+    }
+
     function normalize(text) {
       return text.trim().toLowerCase().replace(/\s+/g, " ");
     }
@@ -746,29 +1018,56 @@
 
     function checkAnswer() {
       if (!currentAnswer) {
-        result.textContent = START_MESSAGE;
-        result.style.color = "#555";
+        setResult(START_MESSAGE);
         correctAnswer.textContent = "";
         return;
       }
 
       const answer = answerInput.value;
+      if (!answer.trim()) {
+        setResult("Type your answer first.");
+        correctAnswer.textContent = "";
+        focusAnswerAtEnd();
+        return;
+      }
 
-      if (isCorrectAnswer(answer)) {
-        result.textContent = "Correct!";
-        result.style.color = "green";
+      const isCorrect = isCorrectAnswer(answer);
+
+      if (isCounterEnabled() && !currentRoundCounted) {
+        spelledCount += 1;
+        currentRoundCounted = true;
+      }
+
+      if (isCorrect) {
+        if (isCounterEnabled() && !currentRoundCorrect && !currentRoundMissed) {
+          correctCount += 1;
+        }
+
+        currentRoundCorrect = true;
+        setResult("Correct! Press Enter again for the next one.", "success");
         correctAnswer.textContent = "";
       } else {
-        result.textContent = "Incorrect.";
-        result.style.color = "red";
+        if (isCounterEnabled()) {
+          currentRoundMissed = true;
+        }
+
+        setResult("Incorrect. Make a correction and try again.", "error");
         correctAnswer.textContent = "";
+        focusAnswerAtEnd();
       }
+
+      updateProgress();
+      updateShowAnswerButton();
+      updateNextButton();
     }
 
     function showCorrectAnswer() {
+      if (isCounterEnabled() && !currentRoundMissed) {
+        return;
+      }
+
       if (!currentAnswer) {
-        result.textContent = START_MESSAGE;
-        result.style.color = "#555";
+        setResult(START_MESSAGE);
         correctAnswer.textContent = "";
         return;
       }
@@ -776,23 +1075,34 @@
       correctAnswer.textContent = `Correct answer: ${currentAnswer}`;
     }
 
-    practiceButtons.name.addEventListener("click", newName);
-    practiceButtons.email.addEventListener("click", newEmail);
-    practiceButtons.phone.addEventListener("click", newPhone);
-    document.getElementById("repeatButton").addEventListener("click", speakSpelling);
-    document.getElementById("readButton").addEventListener("click", readNormally);
+    practiceButtons.name.addEventListener("click", () => newName());
+    practiceButtons.email.addEventListener("click", () => newEmail());
+    practiceButtons.phone.addEventListener("click", () => newPhone());
+    practiceButtons.surprise.addEventListener("click", newSurprise);
+    repeatButton.addEventListener("click", repeatSpelling);
+    readButton.addEventListener("click", readNormally);
     document.getElementById("stopButton").addEventListener("click", stopSpelling);
     document.getElementById("checkButton").addEventListener("click", checkAnswer);
-    document.getElementById("showButton").addEventListener("click", showCorrectAnswer);
+    nextButton.addEventListener("click", startNextRound);
+    showButton.addEventListener("click", showCorrectAnswer);
+    document.getElementById("resetCounterButton").addEventListener("click", resetCounter);
+    counterToggle.addEventListener("change", updateCounterUI);
     speedSlider.addEventListener("input", updateSpeedLabel);
 
     answerInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
-        checkAnswer();
+        if (currentRoundCorrect) {
+          startNextRound();
+        } else {
+          checkAnswer();
+        }
       }
     });
 
     setDataButtonsEnabled(false);
+    updateCounterUI();
+    updateNextButton();
+    updateProgress();
     loadData();
     populateVoices();
     updateSpeedLabel();
