@@ -231,9 +231,9 @@
         <div class="control-row">
           <label class="range-label" for="speedSlider">
             <span>Speed</span>
-            <span id="speedValue">0.80x</span>
+            <span id="speedValue">0.60x</span>
           </label>
-          <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.8" />
+          <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.6" />
         </div>
       </div>
     </section>
@@ -292,7 +292,7 @@
       <p id="correctAnswer"></p>
     </section>
 
-    <p class="version">Version 1.3.1</p>
+    <p class="version">Version 1.3.2</p>
   </main>
 
   <script>
@@ -369,7 +369,12 @@
       answerInput.value = "";
       result.textContent = "";
       correctAnswer.textContent = "";
+      focusAnswerAtEnd();
+    }
+
+    function focusAnswerAtEnd() {
       answerInput.focus();
+      answerInput.setSelectionRange(answerInput.value.length, answerInput.value.length);
     }
 
     function stopSpelling() {
@@ -667,6 +672,7 @@
         return;
       }
 
+      focusAnswerAtEnd();
       stopSpelling();
 
       if (currentType === "email") {
@@ -685,6 +691,7 @@
         return;
       }
 
+      focusAnswerAtEnd();
       stopSpelling();
       const runId = speechRunId;
 
