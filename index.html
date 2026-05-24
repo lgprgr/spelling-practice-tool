@@ -27,12 +27,7 @@
       cursor: pointer;
     }
 
-    input {
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    select {
+    input, select {
       width: 100%;
       box-sizing: border-box;
     }
@@ -102,9 +97,9 @@
     <div class="control-row">
       <label class="range-label" for="speedSlider">
         <span>Speed:</span>
-        <span id="speedValue">0.65x</span>
+        <span id="speedValue">0.80x</span>
       </label>
-      <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.65" />
+      <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.8" />
     </div>
   </div>
 
@@ -115,6 +110,11 @@
   </div>
 
   <div class="controls">
+    <label class="checkbox-label" for="pauseNameParts">
+      <input id="pauseNameParts" type="checkbox" checked />
+      <span>Pause between name parts</span>
+    </label>
+
     <label class="checkbox-label" for="readDomainAsWord">
       <input id="readDomainAsWord" type="checkbox" checked />
       <span>Read domain as word</span>
@@ -139,52 +139,43 @@
   </div>
 
   <div id="result" class="result"></div>
-  <p id="correctName"></p>
+  <p id="correctAnswer"></p>
 
   <script>
-    const fallbackFirstNames = [
-      "Jennifer", "Michael", "Sarah", "David", "Jessica", "Robert",
-      "Emily", "Daniel", "Ashley", "Christopher", "Amanda", "Matthew",
-      "Nicole", "Joshua", "Stephanie", "Andrew", "Elizabeth", "Brandon",
-      "Lauren", "Ryan", "Megan", "Kevin", "Rachel", "Justin",
-      "Laura", "Brian", "Angela", "Jason", "Melissa", "Eric"
-    ];
+    const START_MESSAGE = "Choose Spell name, Spell email, or Spell phone to start.";
+    const NAME_PAUSE_MS = 450;
+    const EMAIL_PAUSE_MS = 350;
+    const PHONE_PAUSE_MS = 450;
 
-    const fallbackLastNames = [
-      "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia",
-      "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez",
-      "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore",
-      "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
-      "Nguyen", "Schwartz", "Kowalski", "McDonald", "Sullivan", "Zimmerman"
-    ];
-
-    const fallbackEmailWords = [
-      "blue", "green", "sunny", "runner", "music", "coffee",
-      "ski", "mom", "skimom", "bigbrother", "lake", "river"
-    ];
-
-    const fallbackEmailDomains = [
-      "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"
-    ];
+    const emailCharacterNames = {
+      "@": "at",
+      ".": "dot",
+      "_": "underscore",
+      "-": "dash",
+      "+": "plus",
+      " ": "space"
+    };
 
     const michiganAreaCodes = [
       "231", "248", "269", "313", "517", "586",
       "616", "734", "810", "906", "947", "989"
     ];
 
-    let firstNames = fallbackFirstNames;
-    let lastNames = fallbackLastNames;
-    let emailWords = fallbackEmailWords;
-    let emailDomains = fallbackEmailDomains;
+    let firstNames = [];
+    let lastNames = [];
+    let emailWords = [];
+    let emailDomains = [];
     let currentAnswer = "";
     let currentType = "";
+    let speechRunId = 0;
 
     const answerInput = document.getElementById("answer");
     const result = document.getElementById("result");
-    const correctName = document.getElementById("correctName");
+    const correctAnswer = document.getElementById("correctAnswer");
     const voiceSelect = document.getElementById("voiceSelect");
     const speedSlider = document.getElementById("speedSlider");
     const speedValue = document.getElementById("speedValue");
+    const pauseNameParts = document.getElementById("pauseNameParts");
     const readDomainAsWord = document.getElementById("readDomainAsWord");
     const pausePhoneGroups = document.getElementById("pausePhoneGroups");
 
@@ -198,19 +189,37 @@
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    function hasLoadedData() {
+      return firstNames.length > 0
+        && lastNames.length > 0
+        && emailWords.length > 0
+        && emailDomains.length > 0;
+    }
+
     function resetRound() {
       answerInput.value = "";
       result.textContent = "";
-      correctName.textContent = "";
+      correctAnswer.textContent = "";
       answerInput.focus();
     }
 
-    function newName() {
-      currentAnswer = `${getRandomItem(firstNames)} ${getRandomItem(lastNames)}`;
-      currentType = "name";
-      answerInput.placeholder = "First Last";
+    function startRound(type, answer, placeholder) {
+      currentType = type;
+      currentAnswer = answer;
+      answerInput.placeholder = placeholder;
       resetRound();
       speakSpelling();
+    }
+
+    function newName() {
+      if (!hasLoadedData()) {
+        result.textContent = "Name data is still loading. Try again in a moment.";
+        result.style.color = "#555";
+        return;
+      }
+
+      const answer = `${getRandomItem(firstNames)} ${getRandomItem(lastNames)}`;
+      startRound("name", answer, "First Last");
     }
 
     function makeNameEmailLocalPart() {
@@ -247,16 +256,18 @@
     }
 
     function newEmail() {
+      if (!hasLoadedData()) {
+        result.textContent = "Email data is still loading. Try again in a moment.";
+        result.style.color = "#555";
+        return;
+      }
+
       const localPart = Math.random() < 0.6
         ? makeNameEmailLocalPart()
         : makeWordEmailLocalPart();
       const domain = getRandomItem(emailDomains);
 
-      currentAnswer = `${localPart}@${domain}`;
-      currentType = "email";
-      answerInput.placeholder = "example@gmail.com";
-      resetRound();
-      speakSpelling();
+      startRound("email", `${localPart}@${domain}`, "example@gmail.com");
     }
 
     function newPhone() {
@@ -264,36 +275,38 @@
       const prefix = String(getRandomNumber(200, 999));
       const lineNumber = String(getRandomNumber(0, 9999)).padStart(4, "0");
 
-      currentAnswer = `${areaCode}-${prefix}-${lineNumber}`;
-      currentType = "phone";
-      answerInput.placeholder = "248-555-1234";
-      resetRound();
-      speakSpelling();
+      startRound("phone", `${areaCode}-${prefix}-${lineNumber}`, "248-555-1234");
     }
 
-    async function loadList(path, fallback) {
-      try {
-        const response = await fetch(path);
+    async function loadList(path) {
+      const response = await fetch(path);
 
-        if (!response.ok) {
-          throw new Error(`Could not load ${path}`);
-        }
-
-        const names = await response.json();
-        return Array.isArray(names) && names.length > 0 ? names : fallback;
-      } catch (error) {
-        console.warn(error);
-        return fallback;
+      if (!response.ok) {
+        throw new Error(`Could not load ${path}`);
       }
+
+      const names = await response.json();
+
+      if (!Array.isArray(names) || names.length === 0) {
+        throw new Error(`${path} is empty or invalid`);
+      }
+
+      return names;
     }
 
-    async function loadNameData() {
-      [firstNames, lastNames, emailWords, emailDomains] = await Promise.all([
-        loadList("data/first-names.json", fallbackFirstNames),
-        loadList("data/last-names.json", fallbackLastNames),
-        loadList("data/email-words.json", fallbackEmailWords),
-        loadList("data/email-domains.json", fallbackEmailDomains)
-      ]);
+    async function loadData() {
+      try {
+        [firstNames, lastNames, emailWords, emailDomains] = await Promise.all([
+          loadList("data/first-names.json"),
+          loadList("data/last-names.json"),
+          loadList("data/email-words.json"),
+          loadList("data/email-domains.json")
+        ]);
+      } catch (error) {
+        console.error(error);
+        result.textContent = "Could not load local data files. Start the local server and refresh.";
+        result.style.color = "red";
+      }
     }
 
     function populateVoices() {
@@ -320,24 +333,11 @@
       speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}x`;
     }
 
-    function getSpokenCharacter(character) {
-      const emailCharacterNames = {
-        "@": "at",
-        ".": "dot",
-        "_": "underscore",
-        "-": "dash",
-        "+": "plus"
-      };
-
-      if (character === " ") {
-        return "space";
-      }
-
-      if (currentType === "email" && emailCharacterNames[character]) {
-        return emailCharacterNames[character];
-      }
-
-      return character;
+    function spellCharacters(text, characterNames = { " ": "space" }) {
+      return text
+        .split("")
+        .map((character) => characterNames[character] || character)
+        .join(", ");
     }
 
     function getEmailParts(emailAddress) {
@@ -347,31 +347,18 @@
         return null;
       }
 
-      const localPartText = localPart
-        .split("")
-        .map(getSpokenCharacter)
-        .join(", ");
+      const localPartText = spellCharacters(localPart, emailCharacterNames);
       const domainText = readDomainAsWord.checked
         ? domain.split(".").join(", dot, ")
-        : domain.split("").map(getSpokenCharacter).join(", ");
+        : spellCharacters(domain, emailCharacterNames);
 
       return [localPartText, "at", domainText];
-    }
-
-    function getEmailSpellingText(emailAddress) {
-      const emailParts = getEmailParts(emailAddress);
-
-      if (!emailParts) {
-        return emailAddress.split("").map(getSpokenCharacter).join(", ");
-      }
-
-      return emailParts.join(". ");
     }
 
     function getPhoneSpellingText(phoneNumber) {
       return phoneNumber
         .split("-")
-        .map((group) => group.split("").join(", "))
+        .map((group) => spellCharacters(group))
         .join(". ");
     }
 
@@ -388,15 +375,15 @@
       return utterance;
     }
 
-    function speakPhoneGroups(phoneNumber) {
+    function speakPhoneGroups(phoneNumber, runId) {
       const groups = phoneNumber.split("-");
 
-      speakSpeechParts(groups.map((group) => group.split("").join(", ")), 450);
+      speakSpeechParts(groups.map((group) => spellCharacters(group)), PHONE_PAUSE_MS, runId);
     }
 
-    function speakSpeechParts(parts, pauseMs) {
+    function speakSpeechParts(parts, pauseMs, runId) {
       function speakPart(index) {
-        if (index >= parts.length) {
+        if (runId !== speechRunId || index >= parts.length) {
           return;
         }
 
@@ -416,37 +403,53 @@
       speakPart(0);
     }
 
-    function speakEmailParts(emailAddress) {
+    function speakEmailParts(emailAddress, runId) {
       const emailParts = getEmailParts(emailAddress);
 
       if (!emailParts) {
-        window.speechSynthesis.speak(makeUtterance(getEmailSpellingText(emailAddress)));
+        window.speechSynthesis.speak(makeUtterance(spellCharacters(emailAddress, emailCharacterNames)));
         return;
       }
 
-      speakSpeechParts(emailParts, 350);
+      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId);
+    }
+
+    function speakNameParts(name, runId) {
+      const nameParts = name
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => spellCharacters(part));
+
+      speakSpeechParts(nameParts, NAME_PAUSE_MS, runId);
     }
 
     function speakSpelling() {
       if (!currentAnswer) {
-        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.textContent = START_MESSAGE;
         result.style.color = "#555";
         return;
       }
 
       window.speechSynthesis.cancel();
+      speechRunId += 1;
+      const runId = speechRunId;
 
       if (currentType === "phone" && pausePhoneGroups.checked) {
-        speakPhoneGroups(currentAnswer);
+        speakPhoneGroups(currentAnswer, runId);
         return;
       }
 
       if (currentType === "email") {
-        speakEmailParts(currentAnswer);
+        speakEmailParts(currentAnswer, runId);
         return;
       }
 
-      let spellingText = currentAnswer.split("").map(getSpokenCharacter).join(", ");
+      if (currentType === "name" && pauseNameParts.checked) {
+        speakNameParts(currentAnswer, runId);
+        return;
+      }
+
+      let spellingText = spellCharacters(currentAnswer);
 
       if (currentType === "phone") {
         spellingText = getPhoneSpellingText(currentAnswer);
@@ -461,9 +464,9 @@
 
     function checkAnswer() {
       if (!currentAnswer) {
-        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.textContent = START_MESSAGE;
         result.style.color = "#555";
-        correctName.textContent = "";
+        correctAnswer.textContent = "";
         return;
       }
 
@@ -472,23 +475,23 @@
       if (normalize(answer) === normalize(currentAnswer)) {
         result.textContent = "Correct!";
         result.style.color = "green";
-        correctName.textContent = "";
+        correctAnswer.textContent = "";
       } else {
         result.textContent = "Incorrect.";
         result.style.color = "red";
-        correctName.textContent = "";
+        correctAnswer.textContent = "";
       }
     }
 
-    function showCorrectName() {
+    function showCorrectAnswer() {
       if (!currentAnswer) {
-        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.textContent = START_MESSAGE;
         result.style.color = "#555";
-        correctName.textContent = "";
+        correctAnswer.textContent = "";
         return;
       }
 
-      correctName.textContent = `Correct answer: ${currentAnswer}`;
+      correctAnswer.textContent = `Correct answer: ${currentAnswer}`;
     }
 
     document.getElementById("nameButton").addEventListener("click", newName);
@@ -496,7 +499,7 @@
     document.getElementById("phoneButton").addEventListener("click", newPhone);
     document.getElementById("repeatButton").addEventListener("click", speakSpelling);
     document.getElementById("checkButton").addEventListener("click", checkAnswer);
-    document.getElementById("showButton").addEventListener("click", showCorrectName);
+    document.getElementById("showButton").addEventListener("click", showCorrectAnswer);
     speedSlider.addEventListener("input", updateSpeedLabel);
 
     answerInput.addEventListener("keydown", (event) => {
@@ -505,7 +508,7 @@
       }
     });
 
-    loadNameData();
+    loadData();
     populateVoices();
     updateSpeedLabel();
     window.speechSynthesis.addEventListener("voiceschanged", populateVoices);
