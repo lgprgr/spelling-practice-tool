@@ -1,9 +1,514 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Name Spelling Practice</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spelling Practice</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 650px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    button, input, select {
+      font-size: 18px;
+      padding: 10px;
+      margin: 6px 0;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    input[type="range"] {
+      padding: 0;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+
+    .result {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 16px;
+    }
+
+    .hint {
+      color: #555;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .control-row {
+      display: grid;
+      gap: 4px;
+    }
+
+    .range-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .checkbox-label {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+    }
+
+    .checkbox-label input {
+      margin: 0;
+      width: auto;
+    }
+  </style>
 </head>
 <body>
-  <h1>Name Spelling Practice</h1>
+  <h1>Spelling Practice</h1>
+  <p class="hint">Listen to the spelling, type what you hear, then check your answer.</p>
+
+  <div class="controls">
+    <div class="control-row">
+      <label for="voiceSelect">Voice:</label>
+      <select id="voiceSelect">
+        <option value="">Default voice</option>
+      </select>
+    </div>
+
+    <div class="control-row">
+      <label class="range-label" for="speedSlider">
+        <span>Speed:</span>
+        <span id="speedValue">0.65x</span>
+      </label>
+      <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.65" />
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button id="nameButton">Spell name</button>
+    <button id="emailButton">Spell email</button>
+    <button id="phoneButton">Spell phone</button>
+  </div>
+
+  <div class="controls">
+    <label class="checkbox-label" for="readDomainAsWord">
+      <input id="readDomainAsWord" type="checkbox" checked />
+      <span>Read domain as word</span>
+    </label>
+
+    <label class="checkbox-label" for="pausePhoneGroups">
+      <input id="pausePhoneGroups" type="checkbox" checked />
+      <span>Pause between phone groups</span>
+    </label>
+  </div>
+
+  <div class="buttons">
+    <button id="repeatButton">Repeat spelling</button>
+  </div>
+
+  <label for="answer">Type your answer:</label>
+  <input id="answer" type="text" autocomplete="off" />
+
+  <div class="buttons">
+    <button id="checkButton">Check answer</button>
+    <button id="showButton">Show correct answer</button>
+  </div>
+
+  <div id="result" class="result"></div>
+  <p id="correctName"></p>
+
+  <script>
+    const fallbackFirstNames = [
+      "Jennifer", "Michael", "Sarah", "David", "Jessica", "Robert",
+      "Emily", "Daniel", "Ashley", "Christopher", "Amanda", "Matthew",
+      "Nicole", "Joshua", "Stephanie", "Andrew", "Elizabeth", "Brandon",
+      "Lauren", "Ryan", "Megan", "Kevin", "Rachel", "Justin",
+      "Laura", "Brian", "Angela", "Jason", "Melissa", "Eric"
+    ];
+
+    const fallbackLastNames = [
+      "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia",
+      "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez",
+      "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore",
+      "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
+      "Nguyen", "Schwartz", "Kowalski", "McDonald", "Sullivan", "Zimmerman"
+    ];
+
+    const fallbackEmailWords = [
+      "blue", "green", "sunny", "runner", "music", "coffee",
+      "ski", "mom", "skimom", "bigbrother", "lake", "river"
+    ];
+
+    const fallbackEmailDomains = [
+      "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"
+    ];
+
+    const michiganAreaCodes = [
+      "231", "248", "269", "313", "517", "586",
+      "616", "734", "810", "906", "947", "989"
+    ];
+
+    let firstNames = fallbackFirstNames;
+    let lastNames = fallbackLastNames;
+    let emailWords = fallbackEmailWords;
+    let emailDomains = fallbackEmailDomains;
+    let currentAnswer = "";
+    let currentType = "";
+
+    const answerInput = document.getElementById("answer");
+    const result = document.getElementById("result");
+    const correctName = document.getElementById("correctName");
+    const voiceSelect = document.getElementById("voiceSelect");
+    const speedSlider = document.getElementById("speedSlider");
+    const speedValue = document.getElementById("speedValue");
+    const readDomainAsWord = document.getElementById("readDomainAsWord");
+    const pausePhoneGroups = document.getElementById("pausePhoneGroups");
+
+    let voices = [];
+
+    function getRandomItem(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function getRandomNumber(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function resetRound() {
+      answerInput.value = "";
+      result.textContent = "";
+      correctName.textContent = "";
+      answerInput.focus();
+    }
+
+    function newName() {
+      currentAnswer = `${getRandomItem(firstNames)} ${getRandomItem(lastNames)}`;
+      currentType = "name";
+      answerInput.placeholder = "First Last";
+      resetRound();
+      speakSpelling();
+    }
+
+    function makeNameEmailLocalPart() {
+      const first = getRandomItem(firstNames).toLowerCase();
+      const last = getRandomItem(lastNames).toLowerCase();
+      const firstInitial = first.charAt(0);
+      const number = getRandomNumber(1, 99);
+      const patterns = [
+        `${first}.${last}`,
+        `${first}_${last}`,
+        `${first}${last}`,
+        `${first}.${last}${number}`,
+        `${firstInitial}.${last}`,
+        `${first}${number}`
+      ];
+
+      return getRandomItem(patterns);
+    }
+
+    function makeWordEmailLocalPart() {
+      const firstWord = getRandomItem(emailWords);
+      const secondWord = getRandomItem(emailWords);
+      const number = getRandomNumber(1, 99);
+      const patterns = [
+        `${firstWord}${secondWord}`,
+        `${firstWord}.${secondWord}`,
+        `${firstWord}_${secondWord}`,
+        `${firstWord}${number}`,
+        `${firstWord}.${secondWord}${number}`,
+        `${firstWord}_${number}`
+      ];
+
+      return getRandomItem(patterns);
+    }
+
+    function newEmail() {
+      const localPart = Math.random() < 0.6
+        ? makeNameEmailLocalPart()
+        : makeWordEmailLocalPart();
+      const domain = getRandomItem(emailDomains);
+
+      currentAnswer = `${localPart}@${domain}`;
+      currentType = "email";
+      answerInput.placeholder = "example@gmail.com";
+      resetRound();
+      speakSpelling();
+    }
+
+    function newPhone() {
+      const areaCode = getRandomItem(michiganAreaCodes);
+      const prefix = String(getRandomNumber(200, 999));
+      const lineNumber = String(getRandomNumber(0, 9999)).padStart(4, "0");
+
+      currentAnswer = `${areaCode}-${prefix}-${lineNumber}`;
+      currentType = "phone";
+      answerInput.placeholder = "248-555-1234";
+      resetRound();
+      speakSpelling();
+    }
+
+    async function loadList(path, fallback) {
+      try {
+        const response = await fetch(path);
+
+        if (!response.ok) {
+          throw new Error(`Could not load ${path}`);
+        }
+
+        const names = await response.json();
+        return Array.isArray(names) && names.length > 0 ? names : fallback;
+      } catch (error) {
+        console.warn(error);
+        return fallback;
+      }
+    }
+
+    async function loadNameData() {
+      [firstNames, lastNames, emailWords, emailDomains] = await Promise.all([
+        loadList("data/first-names.json", fallbackFirstNames),
+        loadList("data/last-names.json", fallbackLastNames),
+        loadList("data/email-words.json", fallbackEmailWords),
+        loadList("data/email-domains.json", fallbackEmailDomains)
+      ]);
+    }
+
+    function populateVoices() {
+      const selectedVoiceName = voiceSelect.value;
+      voices = window.speechSynthesis.getVoices();
+
+      voiceSelect.innerHTML = '<option value="">Default voice</option>';
+
+      voices.forEach((voice) => {
+        const option = document.createElement("option");
+        option.value = voice.name;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        voiceSelect.appendChild(option);
+      });
+
+      voiceSelect.value = selectedVoiceName;
+    }
+
+    function getSelectedVoice() {
+      return voices.find((voice) => voice.name === voiceSelect.value) || null;
+    }
+
+    function updateSpeedLabel() {
+      speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}x`;
+    }
+
+    function getSpokenCharacter(character) {
+      const emailCharacterNames = {
+        "@": "at",
+        ".": "dot",
+        "_": "underscore",
+        "-": "dash",
+        "+": "plus"
+      };
+
+      if (character === " ") {
+        return "space";
+      }
+
+      if (currentType === "email" && emailCharacterNames[character]) {
+        return emailCharacterNames[character];
+      }
+
+      return character;
+    }
+
+    function getEmailParts(emailAddress) {
+      const [localPart, domain] = emailAddress.split("@");
+
+      if (!localPart || !domain) {
+        return null;
+      }
+
+      const localPartText = localPart
+        .split("")
+        .map(getSpokenCharacter)
+        .join(", ");
+      const domainText = readDomainAsWord.checked
+        ? domain.split(".").join(", dot, ")
+        : domain.split("").map(getSpokenCharacter).join(", ");
+
+      return [localPartText, "at", domainText];
+    }
+
+    function getEmailSpellingText(emailAddress) {
+      const emailParts = getEmailParts(emailAddress);
+
+      if (!emailParts) {
+        return emailAddress.split("").map(getSpokenCharacter).join(", ");
+      }
+
+      return emailParts.join(". ");
+    }
+
+    function getPhoneSpellingText(phoneNumber) {
+      return phoneNumber
+        .split("-")
+        .map((group) => group.split("").join(", "))
+        .join(". ");
+    }
+
+    function makeUtterance(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      const selectedVoice = getSelectedVoice();
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      utterance.rate = Number(speedSlider.value);
+      utterance.pitch = 1;
+      return utterance;
+    }
+
+    function speakPhoneGroups(phoneNumber) {
+      const groups = phoneNumber.split("-");
+
+      speakSpeechParts(groups.map((group) => group.split("").join(", ")), 450);
+    }
+
+    function speakSpeechParts(parts, pauseMs) {
+      function speakPart(index) {
+        if (index >= parts.length) {
+          return;
+        }
+
+        const utterance = makeUtterance(parts[index]);
+
+        if (index < parts.length - 1) {
+          utterance.onend = () => {
+            window.setTimeout(() => {
+              speakPart(index + 1);
+            }, pauseMs);
+          };
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      speakPart(0);
+    }
+
+    function speakEmailParts(emailAddress) {
+      const emailParts = getEmailParts(emailAddress);
+
+      if (!emailParts) {
+        window.speechSynthesis.speak(makeUtterance(getEmailSpellingText(emailAddress)));
+        return;
+      }
+
+      speakSpeechParts(emailParts, 350);
+    }
+
+    function speakSpelling() {
+      if (!currentAnswer) {
+        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.style.color = "#555";
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      if (currentType === "phone" && pausePhoneGroups.checked) {
+        speakPhoneGroups(currentAnswer);
+        return;
+      }
+
+      if (currentType === "email") {
+        speakEmailParts(currentAnswer);
+        return;
+      }
+
+      let spellingText = currentAnswer.split("").map(getSpokenCharacter).join(", ");
+
+      if (currentType === "phone") {
+        spellingText = getPhoneSpellingText(currentAnswer);
+      }
+
+      window.speechSynthesis.speak(makeUtterance(spellingText));
+    }
+
+    function normalize(text) {
+      return text.trim().toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function checkAnswer() {
+      if (!currentAnswer) {
+        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.style.color = "#555";
+        correctName.textContent = "";
+        return;
+      }
+
+      const answer = answerInput.value;
+
+      if (normalize(answer) === normalize(currentAnswer)) {
+        result.textContent = "Correct!";
+        result.style.color = "green";
+        correctName.textContent = "";
+      } else {
+        result.textContent = "Incorrect.";
+        result.style.color = "red";
+        correctName.textContent = "";
+      }
+    }
+
+    function showCorrectName() {
+      if (!currentAnswer) {
+        result.textContent = "Choose Spell name, Spell email, or Spell phone to start.";
+        result.style.color = "#555";
+        correctName.textContent = "";
+        return;
+      }
+
+      correctName.textContent = `Correct answer: ${currentAnswer}`;
+    }
+
+    document.getElementById("nameButton").addEventListener("click", newName);
+    document.getElementById("emailButton").addEventListener("click", newEmail);
+    document.getElementById("phoneButton").addEventListener("click", newPhone);
+    document.getElementById("repeatButton").addEventListener("click", speakSpelling);
+    document.getElementById("checkButton").addEventListener("click", checkAnswer);
+    document.getElementById("showButton").addEventListener("click", showCorrectName);
+    speedSlider.addEventListener("input", updateSpeedLabel);
+
+    answerInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        checkAnswer();
+      }
+    });
+
+    loadNameData();
+    populateVoices();
+    updateSpeedLabel();
+    window.speechSynthesis.addEventListener("voiceschanged", populateVoices);
+  </script>
 </body>
 </html>
