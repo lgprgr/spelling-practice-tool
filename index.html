@@ -32,11 +32,6 @@
       margin: 0;
     }
 
-    h2 {
-      font-size: 16px;
-      margin: 0 0 12px;
-    }
-
     label {
       color: #344054;
       font-weight: 700;
@@ -87,6 +82,15 @@
       color: #ffffff;
     }
 
+    button.danger {
+      border-color: #dc2626;
+      color: #b91c1c;
+    }
+
+    button.danger:hover {
+      background: #fef2f2;
+    }
+
     input, select {
       border: 1px solid #bdc7d6;
       width: 100%;
@@ -110,10 +114,31 @@
       flex-wrap: wrap;
     }
 
-    .practice-buttons {
+    .practice-grid {
+      display: grid;
+      column-gap: 14px;
+      row-gap: 12px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .practice-column {
       display: grid;
       gap: 10px;
-      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .practice-column .checkbox-label {
+      align-items: flex-start;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .phone-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .answer-input {
+      margin-top: 18px;
     }
 
     .answer-actions {
@@ -175,7 +200,8 @@
         padding: 20px;
       }
 
-      .practice-buttons {
+      .practice-grid,
+      .practice-column {
         grid-template-columns: 1fr;
       }
     }
@@ -188,8 +214,7 @@
       <p class="hint">Listen to the spelling, type what you hear, then check your answer.</p>
     </header>
 
-    <section class="section" aria-labelledby="speechSettingsHeading">
-      <h2 id="speechSettingsHeading">Speech settings</h2>
+    <section class="section" aria-label="Speech settings">
       <div class="controls">
         <div class="control-row">
           <label for="voiceSelect">Voice</label>
@@ -208,43 +233,47 @@
       </div>
     </section>
 
-    <section class="section" aria-labelledby="practiceHeading">
-      <h2 id="practiceHeading">Choose practice</h2>
-      <div class="practice-buttons">
+    <section class="section" aria-label="Choose practice">
+      <div class="practice-grid">
         <button class="primary" id="nameButton">Spell name</button>
         <button class="primary" id="emailButton">Spell email</button>
         <button class="primary" id="phoneButton">Spell phone</button>
+
+        <div class="practice-column">
+          <label class="checkbox-label" for="pauseNameParts">
+            <input id="pauseNameParts" type="checkbox" checked />
+            <span>Pause between name parts</span>
+          </label>
+        </div>
+
+        <div class="practice-column">
+          <label class="checkbox-label" for="readDomainAsWord">
+            <input id="readDomainAsWord" type="checkbox" checked />
+            <span>Read domain as word</span>
+          </label>
+        </div>
+
+        <div class="practice-column phone-options">
+          <label class="checkbox-label" for="pausePhoneGroups">
+            <input id="pausePhoneGroups" type="checkbox" checked />
+            <span>Pause between phone groups</span>
+          </label>
+          <label class="checkbox-label" for="readLastFourAsPairs">
+            <input id="readLastFourAsPairs" type="checkbox" />
+            <span>Read last four as pairs</span>
+          </label>
+        </div>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="optionsHeading">
-      <h2 id="optionsHeading">Options</h2>
-      <div class="controls">
-        <label class="checkbox-label" for="pauseNameParts">
-          <input id="pauseNameParts" type="checkbox" checked />
-          <span>Pause between name parts</span>
-        </label>
-
-        <label class="checkbox-label" for="readDomainAsWord">
-          <input id="readDomainAsWord" type="checkbox" checked />
-          <span>Read domain as word</span>
-        </label>
-
-        <label class="checkbox-label" for="pausePhoneGroups">
-          <input id="pausePhoneGroups" type="checkbox" checked />
-          <span>Pause between phone groups</span>
-        </label>
-      </div>
-    </section>
-
-    <section class="section" aria-labelledby="answerHeading">
-      <h2 id="answerHeading">Answer</h2>
+    <section class="section" aria-label="Answer">
       <div class="buttons">
         <button id="repeatButton">Repeat spelling</button>
-        <button id="stopButton">Stop spelling</button>
+        <button id="readButton">Read normally</button>
+        <button class="danger" id="stopButton">Stop spelling</button>
       </div>
 
-      <div class="control-row">
+      <div class="control-row answer-input">
         <label for="answer">Type your answer</label>
         <input id="answer" type="text" autocomplete="off" />
       </div>
@@ -258,7 +287,7 @@
       <p id="correctAnswer"></p>
     </section>
 
-    <p class="version">Version 1.2.0</p>
+    <p class="version">Version 1.3.0</p>
   </main>
 
   <script>
@@ -305,6 +334,7 @@
     const pauseNameParts = document.getElementById("pauseNameParts");
     const readDomainAsWord = document.getElementById("readDomainAsWord");
     const pausePhoneGroups = document.getElementById("pausePhoneGroups");
+    const readLastFourAsPairs = document.getElementById("readLastFourAsPairs");
 
     let voices = [];
 
@@ -507,10 +537,22 @@
       return [localPartText, "at", domainText];
     }
 
+    function readDigitPair(pair) {
+      return pair.startsWith("0") ? pair.split("").join(", ") : pair;
+    }
+
+    function getPhoneGroupText(group, index) {
+      if (index === 2 && readLastFourAsPairs.checked) {
+        return `${readDigitPair(group.slice(0, 2))}, ${readDigitPair(group.slice(2))}`;
+      }
+
+      return spellCharacters(group);
+    }
+
     function getPhoneSpellingText(phoneNumber) {
       return phoneNumber
         .split("-")
-        .map((group) => spellCharacters(group))
+        .map(getPhoneGroupText)
         .join(". ");
     }
 
@@ -530,7 +572,7 @@
     function speakPhoneGroups(phoneNumber, runId) {
       const groups = phoneNumber.split("-");
 
-      speakSpeechParts(groups.map((group) => spellCharacters(group)), PHONE_PAUSE_MS, runId);
+      speakSpeechParts(groups.map(getPhoneGroupText), PHONE_PAUSE_MS, runId);
     }
 
     function speakSpeechParts(parts, pauseMs, runId) {
@@ -573,6 +615,62 @@
         .map((part) => spellCharacters(part));
 
       speakSpeechParts(nameParts, NAME_PAUSE_MS, runId);
+    }
+
+    function getNormalEmailParts(emailAddress) {
+      const [localPart, domain] = emailAddress.split("@");
+
+      if (!localPart || !domain) {
+        return null;
+      }
+
+      const localPartText = localPart
+        .replace(/\./g, " dot ")
+        .replace(/_/g, " underscore ")
+        .replace(/-/g, " dash ")
+        .replace(/\+/g, " plus ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const domainText = domain.split(".").join(" dot ");
+
+      return [localPartText, "at", domainText];
+    }
+
+    function getNormalReadingText() {
+      if (currentType === "phone") {
+        return getPhoneSpellingText(currentAnswer);
+      }
+
+      return currentAnswer;
+    }
+
+    function readEmailNormally(runId) {
+      const emailParts = getNormalEmailParts(currentAnswer);
+
+      if (!emailParts) {
+        window.speechSynthesis.speak(makeUtterance(currentAnswer));
+        return;
+      }
+
+      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId);
+    }
+
+    function readNormally() {
+      if (!currentAnswer) {
+        result.textContent = START_MESSAGE;
+        result.style.color = "#555";
+        return;
+      }
+
+      stopSpelling();
+
+      if (currentType === "email") {
+        const runId = speechRunId;
+        readEmailNormally(runId);
+        return;
+      }
+
+      window.speechSynthesis.speak(makeUtterance(getNormalReadingText()));
     }
 
     function speakSpelling() {
@@ -669,6 +767,7 @@
     practiceButtons.email.addEventListener("click", newEmail);
     practiceButtons.phone.addEventListener("click", newPhone);
     document.getElementById("repeatButton").addEventListener("click", speakSpelling);
+    document.getElementById("readButton").addEventListener("click", readNormally);
     document.getElementById("stopButton").addEventListener("click", stopSpelling);
     document.getElementById("checkButton").addEventListener("click", checkAnswer);
     document.getElementById("showButton").addEventListener("click", showCorrectAnswer);
