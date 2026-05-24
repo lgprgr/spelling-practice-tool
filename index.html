@@ -6,33 +6,101 @@
   <title>Spelling Practice</title>
   <style>
     body {
+      background: #eef2f6;
+      color: #172033;
       font-family: Arial, sans-serif;
-      max-width: 650px;
-      margin: 40px auto;
-      padding: 0 20px;
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 20px;
       line-height: 1.5;
     }
 
+    .app {
+      background: #ffffff;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      box-shadow: 0 18px 45px rgba(23, 32, 51, 0.08);
+      box-sizing: border-box;
+      margin: 0 auto;
+      max-width: 720px;
+      padding: 28px;
+    }
+
     h1 {
+      font-size: 32px;
+      line-height: 1.15;
+      margin: 0;
+    }
+
+    h2 {
+      font-size: 16px;
+      margin: 0 0 12px;
+    }
+
+    label {
+      color: #344054;
+      font-weight: 700;
+    }
+
+    .header {
       margin-bottom: 8px;
     }
 
+    .hint {
+      color: #667085;
+      margin: 8px 0 0;
+    }
+
+    .section {
+      border-top: 1px solid #e4e8ef;
+      margin-top: 24px;
+      padding-top: 20px;
+    }
+
     button, input, select {
+      border-radius: 6px;
       font-size: 18px;
-      padding: 10px;
-      margin: 6px 0;
+      margin: 0;
+      padding: 11px 12px;
     }
 
     button {
+      border: 1px solid #bdc7d6;
+      background: #ffffff;
+      color: #172033;
       cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:hover {
+      background: #f4f7fb;
+    }
+
+    button.primary {
+      border-color: #2563eb;
+      color: #1d4ed8;
+    }
+
+    button.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #ffffff;
     }
 
     input, select {
+      border: 1px solid #bdc7d6;
       width: 100%;
       box-sizing: border-box;
     }
 
+    input:focus, select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      outline: none;
+    }
+
     input[type="range"] {
+      accent-color: #2563eb;
       padding: 0;
     }
 
@@ -40,23 +108,33 @@
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      margin: 16px 0;
+    }
+
+    .practice-buttons {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .answer-actions {
+      margin-top: 14px;
     }
 
     .result {
       font-size: 22px;
       font-weight: bold;
       margin-top: 16px;
+      min-height: 33px;
     }
 
-    .hint {
-      color: #555;
+    #correctAnswer {
+      color: #344054;
+      min-height: 24px;
     }
 
     .controls {
       display: grid;
       gap: 12px;
-      margin: 16px 0;
     }
 
     .control-row {
@@ -74,6 +152,7 @@
       align-items: center;
       display: flex;
       gap: 8px;
+      font-weight: 400;
     }
 
     .checkbox-label input {
@@ -86,67 +165,100 @@
       font-size: 14px;
       margin-top: 32px;
     }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 16px;
+      }
+
+      .app {
+        padding: 20px;
+      }
+
+      .practice-buttons {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Spelling Practice</h1>
-  <p class="hint">Listen to the spelling, type what you hear, then check your answer.</p>
+  <main class="app">
+    <header class="header">
+      <h1>Spelling Practice</h1>
+      <p class="hint">Listen to the spelling, type what you hear, then check your answer.</p>
+    </header>
 
-  <div class="controls">
-    <div class="control-row">
-      <label for="voiceSelect">Voice:</label>
-      <select id="voiceSelect">
-        <option value="">Default voice</option>
-      </select>
-    </div>
+    <section class="section" aria-labelledby="speechSettingsHeading">
+      <h2 id="speechSettingsHeading">Speech settings</h2>
+      <div class="controls">
+        <div class="control-row">
+          <label for="voiceSelect">Voice</label>
+          <select id="voiceSelect">
+            <option value="">Default voice</option>
+          </select>
+        </div>
 
-    <div class="control-row">
-      <label class="range-label" for="speedSlider">
-        <span>Speed:</span>
-        <span id="speedValue">0.80x</span>
-      </label>
-      <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.8" />
-    </div>
-  </div>
+        <div class="control-row">
+          <label class="range-label" for="speedSlider">
+            <span>Speed</span>
+            <span id="speedValue">0.80x</span>
+          </label>
+          <input id="speedSlider" type="range" min="0.4" max="1.2" step="0.05" value="0.8" />
+        </div>
+      </div>
+    </section>
 
-  <div class="buttons">
-    <button id="nameButton">Spell name</button>
-    <button id="emailButton">Spell email</button>
-    <button id="phoneButton">Spell phone</button>
-  </div>
+    <section class="section" aria-labelledby="practiceHeading">
+      <h2 id="practiceHeading">Choose practice</h2>
+      <div class="practice-buttons">
+        <button class="primary" id="nameButton">Spell name</button>
+        <button class="primary" id="emailButton">Spell email</button>
+        <button class="primary" id="phoneButton">Spell phone</button>
+      </div>
+    </section>
 
-  <div class="controls">
-    <label class="checkbox-label" for="pauseNameParts">
-      <input id="pauseNameParts" type="checkbox" checked />
-      <span>Pause between name parts</span>
-    </label>
+    <section class="section" aria-labelledby="optionsHeading">
+      <h2 id="optionsHeading">Options</h2>
+      <div class="controls">
+        <label class="checkbox-label" for="pauseNameParts">
+          <input id="pauseNameParts" type="checkbox" checked />
+          <span>Pause between name parts</span>
+        </label>
 
-    <label class="checkbox-label" for="readDomainAsWord">
-      <input id="readDomainAsWord" type="checkbox" checked />
-      <span>Read domain as word</span>
-    </label>
+        <label class="checkbox-label" for="readDomainAsWord">
+          <input id="readDomainAsWord" type="checkbox" checked />
+          <span>Read domain as word</span>
+        </label>
 
-    <label class="checkbox-label" for="pausePhoneGroups">
-      <input id="pausePhoneGroups" type="checkbox" checked />
-      <span>Pause between phone groups</span>
-    </label>
-  </div>
+        <label class="checkbox-label" for="pausePhoneGroups">
+          <input id="pausePhoneGroups" type="checkbox" checked />
+          <span>Pause between phone groups</span>
+        </label>
+      </div>
+    </section>
 
-  <div class="buttons">
-    <button id="repeatButton">Repeat spelling</button>
-  </div>
+    <section class="section" aria-labelledby="answerHeading">
+      <h2 id="answerHeading">Answer</h2>
+      <div class="buttons">
+        <button id="repeatButton">Repeat spelling</button>
+      </div>
 
-  <label for="answer">Type your answer:</label>
-  <input id="answer" type="text" autocomplete="off" />
+      <div class="control-row">
+        <label for="answer">Type your answer</label>
+        <input id="answer" type="text" autocomplete="off" />
+      </div>
 
-  <div class="buttons">
-    <button id="checkButton">Check answer</button>
-    <button id="showButton">Show correct answer</button>
-  </div>
+      <div class="buttons answer-actions">
+        <button class="primary" id="checkButton">Check answer</button>
+        <button id="showButton">Show correct answer</button>
+      </div>
 
-  <div id="result" class="result"></div>
-  <p id="correctAnswer"></p>
-  <p class="version">Version 1.0.0</p>
+      <div id="result" class="result"></div>
+      <p id="correctAnswer"></p>
+    </section>
+
+    <p class="version">Version 1.1.0</p>
+  </main>
 
   <script>
     const START_MESSAGE = "Choose Spell name, Spell email, or Spell phone to start.";
@@ -179,6 +291,11 @@
     const answerInput = document.getElementById("answer");
     const result = document.getElementById("result");
     const correctAnswer = document.getElementById("correctAnswer");
+    const practiceButtons = {
+      name: document.getElementById("nameButton"),
+      email: document.getElementById("emailButton"),
+      phone: document.getElementById("phoneButton")
+    };
     const voiceSelect = document.getElementById("voiceSelect");
     const speedSlider = document.getElementById("speedSlider");
     const speedValue = document.getElementById("speedValue");
@@ -210,10 +327,17 @@
       answerInput.focus();
     }
 
+    function setActivePractice(type) {
+      Object.entries(practiceButtons).forEach(([practiceType, button]) => {
+        button.classList.toggle("active", practiceType === type);
+      });
+    }
+
     function startRound(type, answer, placeholder) {
       currentType = type;
       currentAnswer = answer;
       answerInput.placeholder = placeholder;
+      setActivePractice(type);
       resetRound();
       speakSpelling();
     }
@@ -501,9 +625,9 @@
       correctAnswer.textContent = `Correct answer: ${currentAnswer}`;
     }
 
-    document.getElementById("nameButton").addEventListener("click", newName);
-    document.getElementById("emailButton").addEventListener("click", newEmail);
-    document.getElementById("phoneButton").addEventListener("click", newPhone);
+    practiceButtons.name.addEventListener("click", newName);
+    practiceButtons.email.addEventListener("click", newEmail);
+    practiceButtons.phone.addEventListener("click", newPhone);
     document.getElementById("repeatButton").addEventListener("click", speakSpelling);
     document.getElementById("checkButton").addEventListener("click", checkAnswer);
     document.getElementById("showButton").addEventListener("click", showCorrectAnswer);
