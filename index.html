@@ -486,7 +486,7 @@
       </div>
     </section>
 
-    <p class="version">Version 1.3.7</p>
+    <p class="version">Version 1.3.8</p>
   </main>
 
   <script>
@@ -514,6 +514,7 @@
     let lastNames = [];
     let emailWords = [];
     let emailDomains = [];
+    let scoreChaseFeedbackCategories = [];
     let currentAnswer = "";
     let currentType = "";
     let currentMode = "";
@@ -614,19 +615,16 @@
     }
 
     function getScoreChaseFeedback(correctInLastTen) {
-      if (correctInLastTen <= 4) {
-        return `Round score: ${correctInLastTen}/10. Good job practicing. Your brain is doing push-ups.`;
+      const fallbackMessage = `Round score: ${correctInLastTen}/10. Keep going. The scoreboard is paying attention.`;
+      const category = scoreChaseFeedbackCategories.find((item) => correctInLastTen <= item.maxCorrect);
+
+      if (!category || category.messages.length === 0) {
+        return fallbackMessage;
       }
 
-      if (correctInLastTen <= 7) {
-        return `Round score: ${correctInLastTen}/10. Very nice. The spelling muscles are showing up.`;
-      }
-
-      if (correctInLastTen <= 9) {
-        return `Round score: ${correctInLastTen}/10. Amazing, almost perfect. The words barely escaped.`;
-      }
-
-      return "Round score: 10/10. Perfect. Are you secretly a spelling robot?";
+      return getRandomItem(category.messages)
+        .replace(/\{score\}/g, correctInLastTen)
+        .replace(/\{total\}/g, "10");
     }
 
     function recordScoreChaseOutcome(outcome) {
@@ -875,13 +873,43 @@
       return names;
     }
 
+    async function loadScoreChaseFeedback(path) {
+      const response = await fetch(path);
+
+      if (!response.ok) {
+        throw new Error(`Could not load ${path}`);
+      }
+
+      const categories = await response.json();
+
+      if (!Array.isArray(categories) || categories.length === 0) {
+        throw new Error(`${path} is empty or invalid`);
+      }
+
+      categories.forEach((category) => {
+        const hasValidMax = Number.isInteger(category.maxCorrect)
+          && category.maxCorrect >= 0
+          && category.maxCorrect <= 10;
+        const hasMessages = Array.isArray(category.messages)
+          && category.messages.length > 0
+          && category.messages.every((message) => typeof message === "string" && message.trim());
+
+        if (!hasValidMax || !hasMessages) {
+          throw new Error(`${path} has an invalid feedback category`);
+        }
+      });
+
+      return categories.slice().sort((a, b) => a.maxCorrect - b.maxCorrect);
+    }
+
     async function loadData() {
       try {
-        [firstNames, lastNames, emailWords, emailDomains] = await Promise.all([
+        [firstNames, lastNames, emailWords, emailDomains, scoreChaseFeedbackCategories] = await Promise.all([
           loadList("data/first-names.json"),
           loadList("data/last-names.json"),
           loadList("data/email-words.json"),
-          loadList("data/email-domains.json")
+          loadList("data/email-domains.json"),
+          loadScoreChaseFeedback("data/score-chase-feedback.json")
         ]);
         hasData = true;
         setDataButtonsEnabled(true);

@@ -12,4 +12,6 @@ https://www2.census.gov/topics/genealogy/2010surnames/names.zip
 
 `email-domains.json` is a hand-curated list of common consumer email domains. It intentionally avoids workplace/company domains.
 
+`score-chase-feedback.json` contains Score Chase feedback thresholds and message pools. The app uses the first category where the last 10-item correct count is at or below `maxCorrect`, then picks one message from that category at random.
+
 The app loads these files locally so the practice tool does not depend on the internet at runtime when served from this folder.

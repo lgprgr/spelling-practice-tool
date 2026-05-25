@@ -1,0 +1,70 @@
+[
+  {
+    "maxCorrect": 0,
+    "messages": [
+      "Round score: {score}/10. Do you know what the goal of the game is, or are we just decorating the keyboard?",
+      "Round score: {score}/10. Bold strategy. The answers avoided you with impressive confidence.",
+      "Round score: {score}/10. The spelling part is still loading. Please remain calm.",
+      "Round score: {score}/10. That was a warm-up round wearing a disguise.",
+      "Round score: {score}/10. The scoreboard blinked twice and asked for a snack.",
+      "Round score: {score}/10. The words won this round. Demand a rematch.",
+      "Round score: {score}/10. Technically, you participated. That counts for something.",
+      "Round score: {score}/10. The keyboard had questions. Many questions.",
+      "Round score: {score}/10. A mysterious performance. Scholars may study it someday.",
+      "Round score: {score}/10. The spelling engine is politely pretending not to notice.",
+      "Round score: {score}/10. We have established where the floor is. Upward from here.",
+      "Round score: {score}/10. The good news: plenty of room for dramatic improvement."
+    ]
+  },
+  {
+    "maxCorrect": 4,
+    "messages": [
+      "Round score: {score}/10. Good job practicing. Your brain is doing push-ups.",
+      "Round score: {score}/10. Not bad. The words are starting to look nervous.",
+      "Round score: {score}/10. Progress detected. Tiny parade approved.",
+      "Round score: {score}/10. A bit wobbly, but the spelling gears are turning.",
+      "Round score: {score}/10. The scoreboard says keep going, and for once it has a point.",
+      "Round score: {score}/10. You caught some words. The rest are still acting fancy.",
+      "Round score: {score}/10. Practice round complete. The next one is already sweating.",
+      "Round score: {score}/10. You are warming up. The keyboard has been notified.",
+      "Round score: {score}/10. Some hits, some misses, strong main-character effort.",
+      "Round score: {score}/10. The spellings are not safe yet, but they should stay alert.",
+      "Round score: {score}/10. Keep pushing. The words cannot dodge forever.",
+      "Round score: {score}/10. A respectable start with a suspicious amount of chaos."
+    ]
+  },
+  {
+    "maxCorrect": 8,
+    "messages": [
+      "Round score: {score}/10. Very nice. The spelling muscles are showing up.",
+      "Round score: {score}/10. Solid work. The scoreboard is nodding like it planned this.",
+      "Round score: {score}/10. That was sharp. A few words escaped, but not gracefully.",
+      "Round score: {score}/10. Nice push. The misses are starting to look accidental.",
+      "Round score: {score}/10. Strong round. The keyboard is considering applause.",
+      "Round score: {score}/10. You are getting dangerous. The words have noticed.",
+      "Round score: {score}/10. Clean effort. A little polish and this gets scary.",
+      "Round score: {score}/10. Very respectable. The scoreboard put on its serious face.",
+      "Round score: {score}/10. Good control. The spelling lane is opening up.",
+      "Round score: {score}/10. That had momentum. Keep that engine running.",
+      "Round score: {score}/10. Nice accuracy. The incorrect answers are losing influence.",
+      "Round score: {score}/10. A strong run with just enough mystery to keep it interesting."
+    ]
+  },
+  {
+    "maxCorrect": 10,
+    "messages": [
+      "Round score: {score}/10. Amazing. The words barely escaped.",
+      "Round score: {score}/10. Excellent. The scoreboard just sat up straighter.",
+      "Round score: {score}/10. That was nearly illegal levels of spelling.",
+      "Round score: {score}/10. Very impressive. The keyboard may ask for your autograph.",
+      "Round score: {score}/10. Sharp work. The words are filing a complaint.",
+      "Round score: {score}/10. That was smooth. Suspiciously smooth.",
+      "Round score: {score}/10. Big spelling energy. The scoreboard is trying to act normal.",
+      "Round score: {score}/10. Excellent round. Please leave some points for everyone else.",
+      "Round score: {score}/10. That was clean. The misses forgot to show up.",
+      "Round score: {score}/10. Great run. The keyboard is probably bragging now.",
+      "Round score: {score}/10. Fantastic. Are you secretly a spelling robot?",
+      "Round score: {score}/10. Top-tier spelling. The scoreboard needs a moment."
+    ]
+  }
+]
