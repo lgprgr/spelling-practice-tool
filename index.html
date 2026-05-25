@@ -259,9 +259,13 @@
     }
 
     .score-chase-details {
+      background: #eef6ff;
+      border: 1px solid #93c5fd;
+      border-radius: 6px;
       display: none;
       gap: 8px;
       margin-top: 10px;
+      padding: 10px 12px;
     }
 
     .score-chase-info,
@@ -272,14 +276,23 @@
 
     .score-chase-info {
       font-size: 14px;
+      margin-top: 0;
+    }
+
+    .score-chase-feedback-list {
+      display: grid;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
     }
 
     .score-chase-feedback {
+      color: #1d4ed8;
       font-weight: 700;
-      min-height: 24px;
     }
 
-    .progress.counter-enabled + .score-chase-details {
+    .score-chase-details.active {
       display: grid;
     }
 
@@ -295,6 +308,23 @@
     #correctAnswer {
       color: #344054;
       min-height: 24px;
+    }
+
+    .test-mode-panel {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-radius: 6px;
+      color: #7c2d12;
+      display: none;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 12px;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+    }
+
+    .test-mode-panel.active {
+      display: block;
     }
 
     .controls {
@@ -470,6 +500,7 @@
       <div id="result" class="result"></div>
       <p id="correctAnswer"></p>
 
+      <p id="scoreChaseInfo" class="score-chase-info">Score Chase tracks every item for a 10-item score. Each item allows one spelling repeat and one normal read; pressing Next before checking counts as skipped.</p>
       <div id="progressPanel" class="progress" aria-label="Progress">
         <label class="checkbox-label" for="counterToggle">
           <input id="counterToggle" type="checkbox" />
@@ -480,13 +511,13 @@
           <button id="resetCounterButton">Reset counter</button>
         </div>
       </div>
-      <div class="score-chase-details">
-        <p id="scoreChaseInfo" class="score-chase-info">Score Chase tracks every item for a 10-item score. Each item allows one spelling repeat and one normal read; pressing Next before checking counts as skipped.</p>
-        <p id="scoreChaseFeedback" class="score-chase-feedback" aria-live="polite"></p>
+      <div id="scoreChaseFeedbackPanel" class="score-chase-details">
+        <ol id="scoreChaseFeedbackList" class="score-chase-feedback-list" aria-live="polite"></ol>
       </div>
+      <p id="testModePanel" class="test-mode-panel" aria-live="polite"></p>
     </section>
 
-    <p class="version">Version 1.3.8</p>
+    <p id="versionText" class="version">Version 1.4.0</p>
   </main>
 
   <script>
@@ -531,6 +562,11 @@
     let currentRoundMissed = false;
     let repeatUsed = false;
     let readNormallyUsed = false;
+    let currentRoundSpellingStarted = false;
+    let currentRoundSpellingCompleted = false;
+    let speechInProgress = false;
+    let testModeEnabled = false;
+    let versionClickCount = 0;
 
     const answerInput = document.getElementById("answer");
     const answerHelp = document.getElementById("answerHelp");
@@ -545,7 +581,10 @@
     const counterToggle = document.getElementById("counterToggle");
     const progressPanel = document.getElementById("progressPanel");
     const progressText = document.getElementById("progressText");
-    const scoreChaseFeedback = document.getElementById("scoreChaseFeedback");
+    const scoreChaseFeedbackPanel = document.getElementById("scoreChaseFeedbackPanel");
+    const scoreChaseFeedbackList = document.getElementById("scoreChaseFeedbackList");
+    const testModePanel = document.getElementById("testModePanel");
+    const versionText = document.getElementById("versionText");
     const practiceButtons = {
       name: document.getElementById("nameButton"),
       email: document.getElementById("emailButton"),
@@ -593,6 +632,28 @@
       progressText.textContent = `Total: ${totalCount} | Correct: ${correctCount} | Missed: ${missedCount} | Skipped: ${skippedCount}`;
     }
 
+    function updateTestModePanel() {
+      if (!testModeEnabled) {
+        testModePanel.classList.remove("active");
+        testModePanel.textContent = "";
+        return;
+      }
+
+      testModePanel.classList.add("active");
+      testModePanel.textContent = currentAnswer
+        ? `Test mode:\n${currentAnswer}`
+        : "Test mode: no item selected";
+    }
+
+    function unlockTestMode() {
+      if (testModeEnabled) {
+        return;
+      }
+
+      testModeEnabled = true;
+      updateTestModePanel();
+    }
+
     function isCounterEnabled() {
       return counterToggle.checked;
     }
@@ -603,11 +664,12 @@
       missedCount = 0;
       skippedCount = 0;
       scoreChaseOutcomes = [];
-      scoreChaseFeedback.textContent = "";
+      scoreChaseFeedbackList.replaceChildren();
+      scoreChaseFeedbackPanel.classList.remove("active");
       updateProgress();
 
       if (startFreshRound && currentAnswer) {
-        startNextRound(false);
+        startNextRound(false, false);
         return;
       }
 
@@ -627,6 +689,17 @@
         .replace(/\{total\}/g, "10");
     }
 
+    function addScoreChaseFeedback(roundNumber, correctInLastTen) {
+      const item = document.createElement("li");
+      const message = getScoreChaseFeedback(correctInLastTen)
+        .replace(/^Round score:\s*\d+\/10\.\s*/, "");
+
+      item.className = "score-chase-feedback";
+      item.textContent = `Round ${roundNumber}: ${correctInLastTen}/10. ${message}`;
+      scoreChaseFeedbackList.appendChild(item);
+      scoreChaseFeedbackPanel.classList.add("active");
+    }
+
     function recordScoreChaseOutcome(outcome) {
       totalCount += 1;
       scoreChaseOutcomes.push(outcome);
@@ -642,9 +715,7 @@
       if (totalCount % 10 === 0) {
         const lastTen = scoreChaseOutcomes.slice(-10);
         const correctInLastTen = lastTen.filter((item) => item === "correct").length;
-        scoreChaseFeedback.textContent = getScoreChaseFeedback(correctInLastTen);
-      } else {
-        scoreChaseFeedback.textContent = "";
+        addScoreChaseFeedback(totalCount / 10, correctInLastTen);
       }
 
       updateProgress();
@@ -673,6 +744,8 @@
 
       if (counterEnabled) {
         correctAnswer.textContent = "";
+      } else {
+        resetCounter();
       }
 
       updateShowAnswerButton();
@@ -682,11 +755,17 @@
     function updateRoundActionButtons() {
       const counterEnabled = isCounterEnabled();
 
-      answerInput.disabled = !currentAnswer;
-      repeatButton.disabled = !currentAnswer || (counterEnabled && repeatUsed);
-      readButton.disabled = !currentAnswer || (counterEnabled && readNormallyUsed);
-      stopButton.disabled = !currentAnswer;
-      checkButton.disabled = !currentAnswer;
+      answerInput.disabled = !currentAnswer || !currentRoundSpellingStarted;
+      repeatButton.textContent = currentRoundSpellingCompleted ? "Repeat spelling" : "Start spelling";
+      repeatButton.disabled = !currentAnswer
+        || speechInProgress
+        || (currentRoundSpellingCompleted && counterEnabled && repeatUsed);
+      readButton.disabled = !currentAnswer
+        || !currentRoundSpellingCompleted
+        || speechInProgress
+        || (counterEnabled && readNormallyUsed);
+      stopButton.disabled = !speechInProgress;
+      checkButton.disabled = !currentAnswer || !currentRoundSpellingCompleted;
     }
 
     function updateNextButton() {
@@ -711,6 +790,9 @@
       currentRoundMissed = false;
       repeatUsed = false;
       readNormallyUsed = false;
+      currentRoundSpellingStarted = false;
+      currentRoundSpellingCompleted = false;
+      speechInProgress = false;
       clearResult();
       correctAnswer.textContent = "";
       updateRoundActionButtons();
@@ -728,6 +810,8 @@
       cancelPendingSpeech();
       speechRunId += 1;
       window.speechSynthesis.cancel();
+      speechInProgress = false;
+      updateRoundActionButtons();
     }
 
     function setActivePractice(type) {
@@ -736,7 +820,7 @@
       });
     }
 
-    function startRound(type, answer, placeholder, mode = type) {
+    function startRound(type, answer, placeholder, mode = type, shouldAutoSpeak = true) {
       stopSpelling();
       currentType = type;
       currentMode = mode;
@@ -748,20 +832,25 @@
         : "";
       setActivePractice(mode);
       resetRound();
+      updateTestModePanel();
+      if (!shouldAutoSpeak) {
+        return;
+      }
+
       startSpeechTimeoutId = window.setTimeout(() => {
         startSpeechTimeoutId = null;
         speakSpelling();
       }, ROUND_START_DELAY_MS);
     }
 
-    function newName(mode = "name") {
+    function newName(mode = "name", shouldAutoSpeak = true) {
       if (!hasData) {
         setResult("Name data is still loading. Try again in a moment.");
         return;
       }
 
       const answer = `${getRandomItem(firstNames)} ${getRandomItem(lastNames)}`;
-      startRound("name", answer, "First Last", mode);
+      startRound("name", answer, "First Last", mode, shouldAutoSpeak);
     }
 
     function makeNameEmailLocalPart() {
@@ -797,7 +886,7 @@
       return getRandomItem(patterns);
     }
 
-    function newEmail(mode = "email") {
+    function newEmail(mode = "email", shouldAutoSpeak = true) {
       if (!hasData) {
         setResult("Email data is still loading. Try again in a moment.");
         return;
@@ -808,49 +897,49 @@
         : makeWordEmailLocalPart();
       const domain = getRandomItem(emailDomains);
 
-      startRound("email", `${localPart}@${domain}`, "example@gmail.com", mode);
+      startRound("email", `${localPart}@${domain}`, "example@gmail.com", mode, shouldAutoSpeak);
     }
 
-    function newPhone(mode = "phone") {
+    function newPhone(mode = "phone", shouldAutoSpeak = true) {
       const areaCode = getRandomItem(michiganAreaCodes);
       const prefix = String(getRandomNumber(200, 999));
       const lineNumber = String(getRandomNumber(0, 9999)).padStart(4, "0");
 
-      startRound("phone", `${areaCode}-${prefix}-${lineNumber}`, "248-555-1234", mode);
+      startRound("phone", `${areaCode}-${prefix}-${lineNumber}`, "248-555-1234", mode, shouldAutoSpeak);
     }
 
-    function newSurprise() {
+    function newSurprise(shouldAutoSpeak = true) {
       const surpriseRound = getRandomItem([
-        () => newName("surprise"),
-        () => newEmail("surprise"),
-        () => newPhone("surprise")
+        () => newName("surprise", shouldAutoSpeak),
+        () => newEmail("surprise", shouldAutoSpeak),
+        () => newPhone("surprise", shouldAutoSpeak)
       ]);
 
       surpriseRound();
     }
 
-    function startNextRound(shouldRecordSkip = true) {
+    function startNextRound(shouldRecordSkip = true, shouldAutoSpeak = true) {
       if (shouldRecordSkip) {
         recordSkippedRound();
       }
 
       if (currentMode === "surprise") {
-        newSurprise();
+        newSurprise(shouldAutoSpeak);
         return;
       }
 
       if (currentType === "name") {
-        newName();
+        newName("name", shouldAutoSpeak);
         return;
       }
 
       if (currentType === "email") {
-        newEmail();
+        newEmail("email", shouldAutoSpeak);
         return;
       }
 
       if (currentType === "phone") {
-        newPhone();
+        newPhone("phone", shouldAutoSpeak);
         return;
       }
 
@@ -997,13 +1086,41 @@
       return utterance;
     }
 
-    function speakPhoneGroups(phoneNumber, runId) {
-      const groups = phoneNumber.split("-");
-
-      speakSpeechParts(groups.map(getPhoneGroupText), PHONE_PAUSE_MS, runId);
+    function beginSpeechPlayback() {
+      speechInProgress = true;
+      updateRoundActionButtons();
     }
 
-    function speakSpeechParts(parts, pauseMs, runId) {
+    function finishSpeechPlayback(runId, completedInitialSpelling = false) {
+      if (runId !== speechRunId) {
+        return;
+      }
+
+      speechInProgress = false;
+
+      if (completedInitialSpelling) {
+        currentRoundSpellingCompleted = true;
+      }
+
+      updateRoundActionButtons();
+      focusAnswerAtEnd();
+    }
+
+    function speakUtterance(text, runId, onComplete) {
+      const utterance = makeUtterance(text);
+
+      utterance.onend = () => onComplete(runId);
+      utterance.onerror = () => onComplete(runId);
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function speakPhoneGroups(phoneNumber, runId, onComplete) {
+      const groups = phoneNumber.split("-");
+
+      speakSpeechParts(groups.map(getPhoneGroupText), PHONE_PAUSE_MS, runId, onComplete);
+    }
+
+    function speakSpeechParts(parts, pauseMs, runId, onComplete) {
       function speakPart(index) {
         if (runId !== speechRunId || index >= parts.length) {
           return;
@@ -1017,6 +1134,10 @@
               speakPart(index + 1);
             }, pauseMs);
           };
+          utterance.onerror = () => onComplete(runId);
+        } else {
+          utterance.onend = () => onComplete(runId);
+          utterance.onerror = () => onComplete(runId);
         }
 
         window.speechSynthesis.speak(utterance);
@@ -1025,24 +1146,24 @@
       speakPart(0);
     }
 
-    function speakEmailParts(emailAddress, runId) {
+    function speakEmailParts(emailAddress, runId, onComplete) {
       const emailParts = getEmailParts(emailAddress);
 
       if (!emailParts) {
-        window.speechSynthesis.speak(makeUtterance(spellCharacters(emailAddress, emailCharacterNames)));
+        speakUtterance(spellCharacters(emailAddress, emailCharacterNames), runId, onComplete);
         return;
       }
 
-      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId);
+      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId, onComplete);
     }
 
-    function speakNameParts(name, runId) {
+    function speakNameParts(name, runId, onComplete) {
       const nameParts = name
         .split(/\s+/)
         .filter(Boolean)
         .map((part) => spellCharacters(part));
 
-      speakSpeechParts(nameParts, NAME_PAUSE_MS, runId);
+      speakSpeechParts(nameParts, NAME_PAUSE_MS, runId, onComplete);
     }
 
     function getNormalEmailParts(emailAddress) {
@@ -1072,15 +1193,15 @@
       return currentAnswer;
     }
 
-    function readEmailNormally(runId) {
+    function readEmailNormally(runId, onComplete) {
       const emailParts = getNormalEmailParts(currentAnswer);
 
       if (!emailParts) {
-        window.speechSynthesis.speak(makeUtterance(currentAnswer));
+        speakUtterance(currentAnswer, runId, onComplete);
         return;
       }
 
-      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId);
+      speakSpeechParts(emailParts, EMAIL_PAUSE_MS, runId, onComplete);
     }
 
     function readNormally() {
@@ -1101,14 +1222,15 @@
 
       focusAnswerAtEnd();
       stopSpelling();
+      const runId = speechRunId;
+      beginSpeechPlayback();
 
       if (currentType === "email") {
-        const runId = speechRunId;
-        readEmailNormally(runId);
+        readEmailNormally(runId, finishSpeechPlayback);
         return;
       }
 
-      window.speechSynthesis.speak(makeUtterance(getNormalReadingText()));
+      speakUtterance(getNormalReadingText(), runId, finishSpeechPlayback);
     }
 
     function speakSpelling() {
@@ -1120,19 +1242,24 @@
       focusAnswerAtEnd();
       stopSpelling();
       const runId = speechRunId;
+      currentRoundSpellingStarted = true;
+      beginSpeechPlayback();
+      const completeInitialSpelling = (completedRunId) => {
+        finishSpeechPlayback(completedRunId, true);
+      };
 
       if (currentType === "phone" && pausePhoneGroups.checked) {
-        speakPhoneGroups(currentAnswer, runId);
+        speakPhoneGroups(currentAnswer, runId, completeInitialSpelling);
         return;
       }
 
       if (currentType === "email") {
-        speakEmailParts(currentAnswer, runId);
+        speakEmailParts(currentAnswer, runId, completeInitialSpelling);
         return;
       }
 
       if (currentType === "name" && pauseNameParts.checked) {
-        speakNameParts(currentAnswer, runId);
+        speakNameParts(currentAnswer, runId, completeInitialSpelling);
         return;
       }
 
@@ -1142,15 +1269,15 @@
         spellingText = getPhoneSpellingText(currentAnswer);
       }
 
-      window.speechSynthesis.speak(makeUtterance(spellingText));
+      speakUtterance(spellingText, runId, completeInitialSpelling);
     }
 
     function repeatSpelling() {
-      if (isCounterEnabled() && repeatUsed) {
+      if (speechInProgress || (currentRoundSpellingCompleted && isCounterEnabled() && repeatUsed)) {
         return;
       }
 
-      if (isCounterEnabled()) {
+      if (currentRoundSpellingCompleted && isCounterEnabled()) {
         repeatUsed = true;
       }
 
@@ -1190,6 +1317,11 @@
         return;
       }
 
+      if (!currentRoundSpellingCompleted) {
+        focusAnswerAtEnd();
+        return;
+      }
+
       const answer = answerInput.value;
       if (!answer.trim()) {
         setResult("Type your answer first.");
@@ -1207,7 +1339,7 @@
 
       if (isCorrect) {
         currentRoundCorrect = true;
-        setResult("Correct! Press Enter again for the next one.", "success");
+        setResult("Correct! Use Next for the next one.", "success");
         correctAnswer.textContent = "";
       } else {
         if (isCounterEnabled()) {
@@ -1245,13 +1377,20 @@
     readButton.addEventListener("click", readNormally);
     stopButton.addEventListener("click", stopSpelling);
     checkButton.addEventListener("click", checkAnswer);
-    nextButton.addEventListener("click", startNextRound);
+    nextButton.addEventListener("click", () => startNextRound());
     showButton.addEventListener("click", showCorrectAnswer);
     document.getElementById("resetCounterButton").addEventListener("click", () => {
       resetCounter(isCounterEnabled() && Boolean(currentAnswer));
     });
     counterToggle.addEventListener("change", updateCounterUI);
     speedSlider.addEventListener("input", updateSpeedLabel);
+    versionText.addEventListener("click", () => {
+      versionClickCount += 1;
+
+      if (versionClickCount >= 5) {
+        unlockTestMode();
+      }
+    });
 
     answerInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
