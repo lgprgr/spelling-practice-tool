@@ -118,13 +118,13 @@
       background: #fef2f2;
     }
 
-    button.next-ready {
+    button.action-ready {
       background: #16a34a;
       border-color: #16a34a;
       color: #ffffff;
     }
 
-    button.next-ready:hover {
+    button.action-ready:hover {
       background: #15803d;
     }
 
@@ -358,8 +358,31 @@
     .version {
       color: #777;
       font-size: 12px;
-      margin: 28px 0 0;
+      margin: 8px 0 0;
       text-align: right;
+    }
+
+    .footer {
+      border-top: 1px solid #e4e8ef;
+      margin-top: 28px;
+      padding-top: 14px;
+      position: relative;
+    }
+
+    .footer::before {
+      background: linear-gradient(90deg, #2b8ee8 0 42%, #75c843 42% 74%, #f5c542 74% 100%);
+      border-radius: 999px;
+      content: "";
+      display: block;
+      height: 4px;
+      margin-bottom: 12px;
+      width: 100%;
+    }
+
+    .disclaimer {
+      color: #667085;
+      font-size: 12px;
+      margin: 0;
     }
 
     @media (max-width: 560px) {
@@ -480,7 +503,7 @@
 
     <section class="section" aria-label="Answer">
       <div class="buttons">
-        <button id="repeatButton">Repeat spelling</button>
+        <button id="repeatButton">Spell item</button>
         <button id="readButton">Read normally</button>
         <button class="danger" id="stopButton">Stop spelling</button>
       </div>
@@ -500,7 +523,10 @@
       <div id="result" class="result"></div>
       <p id="correctAnswer"></p>
 
-      <p id="scoreChaseInfo" class="score-chase-info">Score Chase tracks every item for a 10-item score. Each item allows one spelling repeat and one normal read; pressing Next before checking counts as skipped.</p>
+      <p id="testModePanel" class="test-mode-panel" aria-live="polite"></p>
+    </section>
+
+    <section class="section" aria-label="Score chase">
       <div id="progressPanel" class="progress" aria-label="Progress">
         <label class="checkbox-label" for="counterToggle">
           <input id="counterToggle" type="checkbox" />
@@ -511,13 +537,16 @@
           <button id="resetCounterButton">Reset counter</button>
         </div>
       </div>
+      <p id="scoreChaseInfo" class="score-chase-info">Score Chase tracks every item for a 10-item score. Each item allows one spelling repeat and one normal read; pressing Next before checking counts as skipped.</p>
       <div id="scoreChaseFeedbackPanel" class="score-chase-details">
         <ol id="scoreChaseFeedbackList" class="score-chase-feedback-list" aria-live="polite"></ol>
       </div>
-      <p id="testModePanel" class="test-mode-panel" aria-live="polite"></p>
     </section>
 
-    <p id="versionText" class="version">Version 1.4.0</p>
+    <footer class="footer">
+      <p class="disclaimer">Practice names, email addresses, and phone numbers are randomly generated for spelling practice. They are not intended to identify real people or use sensitive personal data.</p>
+      <p id="versionText" class="version">Version 1.4.2</p>
+    </footer>
   </main>
 
   <script>
@@ -756,23 +785,21 @@
       const counterEnabled = isCounterEnabled();
 
       answerInput.disabled = !currentAnswer || !currentRoundSpellingStarted;
-      repeatButton.textContent = currentRoundSpellingCompleted ? "Repeat spelling" : "Start spelling";
       repeatButton.disabled = !currentAnswer
-        || speechInProgress
-        || (currentRoundSpellingCompleted && counterEnabled && repeatUsed);
+        || (counterEnabled && repeatUsed);
       readButton.disabled = !currentAnswer
-        || !currentRoundSpellingCompleted
-        || speechInProgress
+        || !currentRoundSpellingStarted
         || (counterEnabled && readNormallyUsed);
       stopButton.disabled = !speechInProgress;
-      checkButton.disabled = !currentAnswer || !currentRoundSpellingCompleted;
+      checkButton.disabled = !currentAnswer || !currentRoundSpellingCompleted || currentRoundCorrect;
+      checkButton.classList.toggle("action-ready", Boolean(currentAnswer) && currentRoundSpellingCompleted && !currentRoundCorrect);
     }
 
     function updateNextButton() {
       const typeLabel = currentMode || currentType || "item";
       nextButton.textContent = `Next ${typeLabel}`;
       nextButton.disabled = !currentAnswer;
-      nextButton.classList.toggle("next-ready", currentRoundCorrect);
+      nextButton.classList.toggle("action-ready", currentRoundCorrect);
     }
 
     function cancelPendingSpeech() {
@@ -1210,6 +1237,10 @@
         return;
       }
 
+      if (!currentRoundSpellingStarted) {
+        return;
+      }
+
       if (isCounterEnabled() && readNormallyUsed) {
         return;
       }
@@ -1273,11 +1304,11 @@
     }
 
     function repeatSpelling() {
-      if (speechInProgress || (currentRoundSpellingCompleted && isCounterEnabled() && repeatUsed)) {
+      if (!currentAnswer || (isCounterEnabled() && repeatUsed)) {
         return;
       }
 
-      if (currentRoundSpellingCompleted && isCounterEnabled()) {
+      if (isCounterEnabled()) {
         repeatUsed = true;
       }
 
@@ -1351,6 +1382,7 @@
         focusAnswerAtEnd();
       }
 
+      updateRoundActionButtons();
       updateShowAnswerButton();
       updateNextButton();
     }
