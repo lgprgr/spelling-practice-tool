@@ -258,6 +258,31 @@
       gap: 10px;
     }
 
+    .score-chase-details {
+      display: none;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .score-chase-info,
+    .score-chase-feedback {
+      color: #344054;
+      margin: 0;
+    }
+
+    .score-chase-info {
+      font-size: 14px;
+    }
+
+    .score-chase-feedback {
+      font-weight: 700;
+      min-height: 24px;
+    }
+
+    .progress.counter-enabled + .score-chase-details {
+      display: grid;
+    }
+
     .progress.counter-enabled .progress-details {
       display: flex;
     }
@@ -347,6 +372,10 @@
       .progress-details {
         align-items: stretch;
         flex-direction: column;
+      }
+
+      .score-chase-details {
+        gap: 6px;
       }
 
       .practice-spacer {
@@ -447,13 +476,17 @@
           <span>Score chase</span>
         </label>
         <div class="progress-details">
-          <p id="progressText">Spelled: 0 | Correct: 0</p>
+          <p id="progressText">Total: 0 | Correct: 0 | Missed: 0 | Skipped: 0</p>
           <button id="resetCounterButton">Reset counter</button>
         </div>
       </div>
+      <div class="score-chase-details">
+        <p id="scoreChaseInfo" class="score-chase-info">Score Chase tracks every item for a 10-item score. Each item allows one spelling repeat and one normal read; pressing Next before checking counts as skipped.</p>
+        <p id="scoreChaseFeedback" class="score-chase-feedback" aria-live="polite"></p>
+      </div>
     </section>
 
-    <p class="version">Version 1.3.5</p>
+    <p class="version">Version 1.3.7</p>
   </main>
 
   <script>
@@ -487,8 +520,11 @@
     let speechRunId = 0;
     let startSpeechTimeoutId = null;
     let hasData = false;
-    let spelledCount = 0;
+    let totalCount = 0;
     let correctCount = 0;
+    let missedCount = 0;
+    let skippedCount = 0;
+    let scoreChaseOutcomes = [];
     let currentRoundCounted = false;
     let currentRoundCorrect = false;
     let currentRoundMissed = false;
@@ -508,6 +544,7 @@
     const counterToggle = document.getElementById("counterToggle");
     const progressPanel = document.getElementById("progressPanel");
     const progressText = document.getElementById("progressText");
+    const scoreChaseFeedback = document.getElementById("scoreChaseFeedback");
     const practiceButtons = {
       name: document.getElementById("nameButton"),
       email: document.getElementById("emailButton"),
@@ -552,18 +589,76 @@
     }
 
     function updateProgress() {
-      progressText.textContent = `Spelled: ${spelledCount} | Correct: ${correctCount}`;
+      progressText.textContent = `Total: ${totalCount} | Correct: ${correctCount} | Missed: ${missedCount} | Skipped: ${skippedCount}`;
     }
 
     function isCounterEnabled() {
       return counterToggle.checked;
     }
 
-    function resetCounter() {
-      spelledCount = 0;
+    function resetCounter(startFreshRound = false) {
+      totalCount = 0;
       correctCount = 0;
+      missedCount = 0;
+      skippedCount = 0;
+      scoreChaseOutcomes = [];
+      scoreChaseFeedback.textContent = "";
       updateProgress();
+
+      if (startFreshRound && currentAnswer) {
+        startNextRound(false);
+        return;
+      }
+
       focusAnswerAtEnd();
+    }
+
+    function getScoreChaseFeedback(correctInLastTen) {
+      if (correctInLastTen <= 4) {
+        return `Round score: ${correctInLastTen}/10. Good job practicing. Your brain is doing push-ups.`;
+      }
+
+      if (correctInLastTen <= 7) {
+        return `Round score: ${correctInLastTen}/10. Very nice. The spelling muscles are showing up.`;
+      }
+
+      if (correctInLastTen <= 9) {
+        return `Round score: ${correctInLastTen}/10. Amazing, almost perfect. The words barely escaped.`;
+      }
+
+      return "Round score: 10/10. Perfect. Are you secretly a spelling robot?";
+    }
+
+    function recordScoreChaseOutcome(outcome) {
+      totalCount += 1;
+      scoreChaseOutcomes.push(outcome);
+
+      if (outcome === "correct") {
+        correctCount += 1;
+      } else if (outcome === "missed") {
+        missedCount += 1;
+      } else if (outcome === "skipped") {
+        skippedCount += 1;
+      }
+
+      if (totalCount % 10 === 0) {
+        const lastTen = scoreChaseOutcomes.slice(-10);
+        const correctInLastTen = lastTen.filter((item) => item === "correct").length;
+        scoreChaseFeedback.textContent = getScoreChaseFeedback(correctInLastTen);
+      } else {
+        scoreChaseFeedback.textContent = "";
+      }
+
+      updateProgress();
+    }
+
+    function recordSkippedRound() {
+      if (!isCounterEnabled() || !currentAnswer || currentRoundCounted) {
+        return;
+      }
+
+      currentRoundCounted = true;
+      recordScoreChaseOutcome("skipped");
     }
 
     function updateShowAnswerButton() {
@@ -575,7 +670,7 @@
 
       progressPanel.classList.toggle("counter-enabled", counterEnabled);
       if (counterEnabled) {
-        resetCounter();
+        resetCounter(Boolean(currentAnswer));
       }
 
       if (counterEnabled) {
@@ -736,7 +831,11 @@
       surpriseRound();
     }
 
-    function startNextRound() {
+    function startNextRound(shouldRecordSkip = true) {
+      if (shouldRecordSkip) {
+        recordSkippedRound();
+      }
+
       if (currentMode === "surprise") {
         newSurprise();
         return;
@@ -1074,15 +1173,11 @@
       const isCorrect = isCorrectAnswer(answer);
 
       if (isCounterEnabled() && !currentRoundCounted) {
-        spelledCount += 1;
         currentRoundCounted = true;
+        recordScoreChaseOutcome(isCorrect ? "correct" : "missed");
       }
 
       if (isCorrect) {
-        if (isCounterEnabled() && !currentRoundCorrect && !currentRoundMissed) {
-          correctCount += 1;
-        }
-
         currentRoundCorrect = true;
         setResult("Correct! Press Enter again for the next one.", "success");
         correctAnswer.textContent = "";
@@ -1096,7 +1191,6 @@
         focusAnswerAtEnd();
       }
 
-      updateProgress();
       updateShowAnswerButton();
       updateNextButton();
     }
@@ -1125,7 +1219,9 @@
     checkButton.addEventListener("click", checkAnswer);
     nextButton.addEventListener("click", startNextRound);
     showButton.addEventListener("click", showCorrectAnswer);
-    document.getElementById("resetCounterButton").addEventListener("click", resetCounter);
+    document.getElementById("resetCounterButton").addEventListener("click", () => {
+      resetCounter(isCounterEnabled() && Boolean(currentAnswer));
+    });
     counterToggle.addEventListener("change", updateCounterUI);
     speedSlider.addEventListener("input", updateSpeedLabel);
 
